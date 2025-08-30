@@ -126,9 +126,17 @@ export default function Profile() {
                   />
                 )}
               </label>
-              <div className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg">
+              <label className={`absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg ${isEditing ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}>
                 <Camera className="h-4 w-4" />
-              </div>
+                {isEditing && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                    className="hidden"
+                  />
+                )}
+              </label>
             </div>
             <div className="text-center md:text-left flex-1">
               <h1 className="text-3xl font-bold mb-2">
