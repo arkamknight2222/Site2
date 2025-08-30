@@ -13,6 +13,7 @@ interface User {
   highestDegree?: string;
   hasCriminalRecord?: boolean;
   resumeUrl?: string;
+  profilePicture?: string;
   points: number;
   isEmployer?: boolean;
   companyName?: string;

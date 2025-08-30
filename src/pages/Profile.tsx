@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [profilePicture, setProfilePicture] = useState<string | null>(user?.profilePicture || null);
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -29,6 +30,32 @@ export default function Profile() {
   ]);
   const [newCompany, setNewCompany] = useState({ name: '', address: '' });
   const [showAddCompany, setShowAddCompany] = useState(false);
+
+  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+      
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image must be smaller than 5MB');
+        return;
+      }
+      
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setProfilePicture(result);
+        updateUser({ profilePicture: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSave = () => {
     updateUser(formData);
@@ -80,12 +107,26 @@ export default function Profile() {
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
           <div className="flex flex-col md:flex-row items-center">
             <div className="relative mb-4 md:mb-0 md:mr-6">
-              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center">
-                <User className="h-12 w-12" />
+              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+                {profilePicture ? (
+                  <img 
+                    src={profilePicture} 
+                    alt="Profile" 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <User className="h-12 w-12" />
+                )}
               </div>
-              <button className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors">
+              <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <Camera className="h-4 w-4" />
-              </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfilePictureChange}
+                  className="hidden"
+                />
+              </label>
             </div>
             <div className="text-center md:text-left flex-1">
               <h1 className="text-3xl font-bold mb-2">
