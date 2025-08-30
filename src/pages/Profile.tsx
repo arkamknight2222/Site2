@@ -57,6 +57,40 @@ export default function Profile() {
     }
   };
 
+  const handleResumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        alert('Please select a PDF, DOC, or DOCX file');
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Resume must be smaller than 10MB');
+        return;
+      }
+      
+      // Simulate upload process
+      const fileName = file.name;
+      const resumeUrl = `uploads/resumes/${Date.now()}_${fileName}`;
+      
+      updateUser({ 
+        resumeUrl: resumeUrl,
+        resumeFileName: fileName 
+      });
+      
+      alert('Resume uploaded successfully!');
+    }
+  };
+
   const handleSave = () => {
     updateUser(formData);
     setIsEditing(false);
@@ -400,11 +434,27 @@ export default function Profile() {
                   <div className="text-center">
                     <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 mb-4">
-                      {user?.resumeUrl ? 'Resume uploaded' : 'No resume uploaded'}
+                      {user?.resumeUrl ? (
+                        <>
+                          <span className="text-green-600 font-medium">✓ Resume uploaded</span>
+                          <br />
+                          <span className="text-xs text-gray-500">
+                            {(user as any)?.resumeFileName || 'resume.pdf'}
+                          </span>
+                        </>
+                      ) : (
+                        'No resume uploaded'
+                      )}
                     </p>
-                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                    <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors cursor-pointer inline-block">
                       {user?.resumeUrl ? 'Update Resume' : 'Upload Resume'}
-                    </button>
+                      <input
+                        type="file"
+                        accept=".pdf,.doc,.docx"
+                        onChange={handleResumeChange}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
                 </div>
               </div>
