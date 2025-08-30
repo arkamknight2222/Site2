@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StatsCard from '../components/StatsCard';
 import PointsDisplay from '../components/PointsDisplay';
@@ -45,6 +45,58 @@ export default function Dashboard() {
     { action: 'Registered for Tech Career Fair 2025', date: '2 days ago', type: 'event' },
     { action: 'Profile viewed by Growth Labs recruiter', date: '3 days ago', type: 'view' },
   ];
+
+  const recentPointsHistory = [
+    {
+      id: '1',
+      type: 'earned',
+      amount: 10,
+      description: 'Applied to Senior Frontend Developer',
+      date: '2 hours ago',
+      category: 'application',
+    },
+    {
+      id: '2',
+      type: 'spent',
+      amount: -25,
+      description: 'Added points boost to application',
+      date: '1 day ago',
+      category: 'boost',
+    },
+    {
+      id: '3',
+      type: 'earned',
+      amount: 50,
+      description: 'Profile completion bonus',
+      date: '2 days ago',
+      category: 'bonus',
+    },
+    {
+      id: '4',
+      type: 'earned',
+      amount: 10,
+      description: 'Registered for Tech Career Fair',
+      date: '3 days ago',
+      category: 'event',
+    },
+  ];
+
+  const getPointsIcon = (category: string) => {
+    switch (category) {
+      case 'application':
+        return '📝';
+      case 'boost':
+        return '🚀';
+      case 'bonus':
+        return '🎁';
+      case 'event':
+        return '📅';
+      case 'purchase':
+        return '💳';
+      default:
+        return '⭐';
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -170,6 +222,53 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Points History */}
+          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100 mt-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Recent Points Activity</h2>
+              <Link 
+                to="/points-history" 
+                className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center"
+              >
+                View Full History
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
+            </div>
+            <div className="space-y-3">
+              {recentPointsHistory.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div className="flex items-center">
+                    <div className="text-xl mr-3">
+                      {getPointsIcon(item.category)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium text-gray-900 text-sm">{item.description}</p>
+                      <p className="text-xs text-gray-500">{item.date}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center">
+                    {item.type === 'earned' ? (
+                      <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                    ) : (
+                      <TrendingDown className="h-4 w-4 text-red-600 mr-1" />
+                    )}
+                    <span className={`font-bold text-sm ${
+                      item.type === 'earned' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {item.type === 'earned' ? '+' : ''}{item.amount}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-blue-700 font-medium">Current Balance:</span>
+                <span className="text-blue-900 font-bold text-lg">{user?.points || 0} points</span>
+              </div>
             </div>
           </div>
         </div>
