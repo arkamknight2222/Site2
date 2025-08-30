@@ -120,12 +120,14 @@ export default function Profile() {
               </div>
               <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors cursor-pointer">
                 <Camera className="h-4 w-4" />
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleProfilePictureChange}
-                  className="hidden"
-                />
+                {isEditing && (
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureChange}
+                    className="hidden"
+                  />
+                )}
               </label>
             </div>
             <div className="text-center md:text-left flex-1">
