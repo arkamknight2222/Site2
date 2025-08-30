@@ -215,7 +215,7 @@ export default function EventDetails() {
                     </button>
                     <button
                       onClick={handleSelectResume}
-                      disabled={!canAfford}
+                      disabled={isRegistering || !canAfford}
                       className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
                         canAfford
                           ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'

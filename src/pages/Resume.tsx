@@ -11,6 +11,7 @@ interface ResumeFile {
   isDefault: boolean;
   folderId: string;
   url: string;
+  fileContent?: string; // Base64 content for viewing
 }
 
 interface ResumeFolder {
@@ -53,6 +54,7 @@ export default function Resume() {
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewingResume, setViewingResume] = useState<ResumeFile | null>(null);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
@@ -107,6 +109,7 @@ export default function Resume() {
       isDefault: resumes.length === 0, // First resume becomes default
       folderId: selectedFolder === 'all' ? 'default' : selectedFolder,
       url: `uploads/resumes/${Date.now()}_${file.name}`,
+      fileContent: '', // In real app, this would be the actual file content
     };
 
     setResumes(prev => [newResume, ...prev]);
@@ -159,6 +162,30 @@ export default function Resume() {
         }
       }
     }
+  };
+
+  const viewResume = (resume: ResumeFile) => {
+    setViewingResume(resume);
+  };
+
+  const downloadResume = (resume: ResumeFile) => {
+    // Create a mock download link
+    const link = document.createElement('a');
+    link.href = '#'; // In real app, this would be the actual file URL
+    link.download = resume.fileName;
+    
+    // Create a mock blob for demonstration
+    const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+    const blob = new Blob([mockContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(`Downloading ${resume.fileName}...`);
   };
 
   const updateSort = (folderId: string, sortBy: 'name' | 'date' | 'size') => {
@@ -438,12 +465,14 @@ export default function Resume() {
                           <button
                             className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
                             title="View resume"
+                           onClick={() => viewResume(resume)}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
                             title="Download resume"
+                           onClick={() => downloadResume(resume)}
                           >
                             <Download className="h-4 w-4" />
                           </button>
@@ -484,6 +513,65 @@ export default function Resume() {
           </div>
         </div>
       </div>
+
+      {/* Resume Viewer Modal */}
+      {viewingResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{viewingResume.name}</h2>
+                <p className="text-gray-600 text-sm">{viewingResume.fileName}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => downloadResume(viewingResume)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </button>
+                <button
+                  onClick={() => setViewingResume(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 p-6 overflow-hidden">
+              <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">Resume Preview</h3>
+                  <p className="text-gray-600 mb-4">
+                    {viewingResume.fileName}
+                  </p>
+                  <div className="space-y-2 text-sm text-gray-500">
+                    <p>Size: {formatFileSize(viewingResume.size)}</p>
+                    <p>Uploaded: {formatDate(viewingResume.uploadDate)}</p>
+                    {viewingResume.isDefault && (
+                      <p className="text-green-600 font-medium">✓ Default Resume</p>
+                    )}
+                  </div>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => downloadResume(viewingResume)}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
+                    >
+                      <Download className="h-5 w-5 mr-2" />
+                      Download Resume
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-4">
+                    Note: In a production environment, this would show the actual PDF/document content
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

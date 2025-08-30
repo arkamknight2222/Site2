@@ -176,6 +176,44 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
                           <span>Uploaded {formatDate(resume.uploadDate)}</span>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // View resume functionality
+                            alert(`Viewing ${resume.name}...`);
+                          }}
+                          className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                          title="View resume"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Download resume functionality
+                            const link = document.createElement('a');
+                            link.href = '#';
+                            link.download = resume.fileName;
+                            
+                            const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}`;
+                            const blob = new Blob([mockContent], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            
+                            link.href = url;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                            
+                            alert(`Downloading ${resume.fileName}...`);
+                          }}
+                          className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
+                          title="Download resume"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   </button>
                 ))}
