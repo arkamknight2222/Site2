@@ -24,8 +24,6 @@ interface ResumeFolder {
 export default function Resume() {
   const { user, updateUser } = useAuth();
   const [folders, setFolders] = useState<ResumeFolder[]>([
-    { id: 'all', name: 'All Resumes', sortBy: 'date', sortOrder: 'desc' },
-    { id: 'default', name: 'General', sortBy: 'date', sortOrder: 'desc' },
   ]);
   const [resumes, setResumes] = useState<ResumeFile[]>([
     {
@@ -35,7 +33,7 @@ export default function Resume() {
       size: 245760, // 240KB
       uploadDate: '2025-01-08T10:30:00Z',
       isDefault: true,
-      folderId: 'default',
+      folderId: 'uncategorized',
       url: 'uploads/resumes/john_doe_developer.pdf',
     },
     {
@@ -45,12 +43,12 @@ export default function Resume() {
       size: 198432, // 194KB
       uploadDate: '2025-01-05T14:20:00Z',
       isDefault: false,
-      folderId: 'default',
+      folderId: 'uncategorized',
       url: 'uploads/resumes/john_doe_marketing.pdf',
     },
   ]);
   
-  const [selectedFolder, setSelectedFolder] = useState('all');
+  const [selectedFolder, setSelectedFolder] = useState('uncategorized');
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -114,6 +112,44 @@ export default function Resume() {
       fileContent: '', // In real app, this would be the actual file content
     };
 
+    const deleteFolder = (folderId: string) => {
+      const folder = folders.find(f => f.id === folderId);
+      if (!folder) return;
+      
+      const folderResumes = resumes.filter(r => r.folderId === folderId);
+      
+      if (folderResumes.length > 0) {
+        const confirmMessage = `This folder contains ${folderResumes.length} resume${folderResumes.length !== 1 ? 's' : ''}. Deleting the folder will move all resumes to "Uncategorized". Continue?`;
+        if (!window.confirm(confirmMessage)) return;
+        
+        // Move all resumes to uncategorized
+        setResumes(prev => prev.map(resume => 
+          resume.folderId === folderId 
+            ? { ...resume, folderId: 'uncategorized' }
+            : resume
+        ));
+      }
+      
+      setFolders(prev => prev.filter(f => f.id !== folderId));
+      
+      // If we're currently viewing the deleted folder, switch to all
+      if (selectedFolder === folderId) {
+        setSelectedFolder('all');
+      }
+      
+      alert(`Folder "${folder.name}" deleted successfully!`);
+    };
+
+    const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
+      const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
+      setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
+    };
+
+    const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+      sortBy: 'date',
+      sortOrder: 'desc'
+    });
+
     setResumes(prev => [newResume, ...prev]);
     alert('Resume uploaded successfully!');
   };
@@ -131,6 +167,34 @@ export default function Resume() {
     setFolders(prev => [...prev, newFolder]);
     setNewFolderName('');
     setShowNewFolderForm(false);
+  };
+
+  const deleteFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const folderResumes = resumes.filter(r => r.folderId === folderId);
+    
+    if (folderResumes.length > 0) {
+      const confirmMessage = `This folder contains ${folderResumes.length} resume${folderResumes.length !== 1 ? 's' : ''}. Deleting the folder will move all resumes to "Uncategorized". Continue?`;
+      if (!window.confirm(confirmMessage)) return;
+      
+      // Move all resumes to uncategorized
+      setResumes(prev => prev.map(resume => 
+        resume.folderId === folderId 
+          ? { ...resume, folderId: 'uncategorized' }
+          : resume
+      ));
+    }
+    
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+      const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+      alert(`Resume moved to "${targetFolderName}" successfully!`);
+    if (selectedFolder === folderId) {
+      setSelectedFolder('all');
+    }
+    
+    alert(`Folder "${folder.name}" deleted successfully!`);
   };
 
   const setDefaultResume = (resumeId: string) => {
@@ -225,27 +289,93 @@ export default function Resume() {
       );
     }
 
-    // Apply sorting
-    const currentFolder = folders.find(f => f.id === selectedFolder);
-    if (currentFolder) {
-      filtered.sort((a, b) => {
-        let comparison = 0;
-        
-        switch (currentFolder.sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'date':
-            comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
-            break;
-          case 'size':
-            comparison = a.size - b.size;
-            break;
-        }
-        
-        return currentFolder.sortOrder === 'asc' ? comparison : -comparison;
-      });
+    // Apply sorting - use default sorting for 'all' folder
+    let sortBy: 'name' | 'date' | 'size' = 'date';
+    let sortOrder: 'asc' | 'desc' = 'desc';
+    
+    if (selectedFolder !== 'all') {
+      const currentFolder = folders.find(f => f.id === selectedFolder);
+      if (currentFolder) {
+        sortBy = currentFolder.sortBy;
+        sortOrder = currentFolder.sortOrder;
+      }
     }
+    
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'date':
+          comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+          break;
+        case 'size':
+          comparison = a.size - b.size;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+
+    return filtered;
+  };
+
+  const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
+    // For "All Resumes", we'll store the sorting preference separately
+    const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
+    setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
+  };
+
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
+  const getFilteredAndSortedResumes = () => {
+    let filtered = selectedFolder === 'all' 
+      ? resumes 
+        resume.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        resume.fileName.toLowerCase().includes(searchQuery.toLowerCase())
+    // Apply search filter
+    }
+
+    // Apply sorting
+    let sortBy: 'name' | 'date' | 'size';
+    let sortOrder: 'asc' | 'desc';
+    
+    if (selectedFolder === 'all') {
+      sortBy = allResumesSorting.sortBy;
+      sortOrder = allResumesSorting.sortOrder;
+    } else {
+      const currentFolder = folders.find(f => f.id === selectedFolder);
+      if (currentFolder) {
+        sortBy = currentFolder.sortBy;
+        sortOrder = currentFolder.sortOrder;
+      } else {
+        sortBy = 'date';
+        sortOrder = 'desc';
+      }
+    }
+    
+    filtered.sort((a, b) => {
+      let comparison = 0;
+    if (searchQuery) {
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'date':
+          comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+          break;
+        case 'size':
+          comparison = a.size - b.size;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
     return filtered;
   };
@@ -277,9 +407,31 @@ export default function Resume() {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar - Folders */}
         <div className="lg:col-span-1">
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+            {/* All Resumes Button */}
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setSelectedFolder('all')}
+                className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${
+                  selectedFolder === 'all'
+                    ? 'bg-blue-100 text-blue-600 font-medium'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                }`}
+              >
+                <div className="flex items-center">
+                  <Folder className="h-4 w-4 mr-2" />
+                  <span>All Resumes</span>
+                </div>
+                <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                  {resumes.length}
+                </span>
+              </button>
+            </div>
+            
+            {/* Custom Folders */}
+            <div className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Folders</h2>
+              <h2 className="text-lg font-bold text-gray-900">Custom Folders</h2>
               <button
                 onClick={() => setShowNewFolderForm(true)}
                 className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -320,31 +472,55 @@ export default function Resume() {
 
             <div className="space-y-2">
               {folders.map((folder) => {
-                const folderResumeCount = folder.id === 'all' 
-                  ? resumes.length 
-                  : resumes.filter(r => r.folderId === folder.id).length;
+                const folderResumeCount = resumes.filter(r => r.folderId === folder.id).length;
                 
                 return (
-                  <button
+                  <div
                     key={folder.id}
-                    onClick={() => setSelectedFolder(folder.id)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${
+                    className={`p-3 rounded-lg transition-colors flex items-center justify-between ${
                       selectedFolder === folder.id
                         ? 'bg-blue-100 text-blue-600 font-medium'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center">
+                    <button
+                      onClick={() => setSelectedFolder(folder.id)}
+                      className="flex items-center flex-1 text-left hover:text-gray-900 transition-colors"
+                    >
                       <Folder className="h-4 w-4 mr-2" />
                       <span>{folder.name}</span>
+                    </button>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                        {folderResumeCount}
+                      </span>
+                      <button
+                        onClick={() => deleteFolder(folder.id)}
+                        className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"
+                        title="Delete folder"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
                     </div>
-                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
-                      {folderResumeCount}
-                    </span>
-                  </button>
+                  </div>
                 );
               })}
+              
+              {folders.length === 0 && !showNewFolderForm && (
+                <div className="text-center py-6">
+                  <Folder className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm mb-3">No custom folders yet</p>
+                  <button
+                    onClick={() => setShowNewFolderForm(true)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center mx-auto"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create First Folder
+                  </button>
+                </div>
+              )}
             </div>
+          </div>
           </div>
         </div>
 
@@ -390,46 +566,46 @@ export default function Resume() {
               </div>
 
               {/* Sort Controls */}
-              {currentFolder && (
+              {(currentFolder || selectedFolder === 'all') && (
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                   <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'name')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'name'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Name
-                    {currentFolder.sortBy === 'name' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'date')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('date') : updateSort(selectedFolder, 'date')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'date'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Date
-                    {currentFolder.sortBy === 'date' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'size')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('size') : updateSort(selectedFolder, 'size')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'size'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Size
-                    {currentFolder.sortBy === 'size' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                 </div>
@@ -605,9 +781,21 @@ export default function Resume() {
             <p className="text-gray-600 mb-4">
               Move "{resumeToMove.name}" to a different folder:
             </p>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+              {/* Uncategorized option */}
+              {resumeToMove.folderId !== 'uncategorized' && (
+                <button
+                  onClick={() => moveResumeToFolder(resumeToMove.id, 'uncategorized')}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+                >
+                  <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                  <span className="font-medium text-gray-900">Uncategorized</span>
+                </button>
+              )}
+              
+              {/* Custom folders */}
               {folders
-                .filter(folder => folder.id !== 'all' && folder.id !== resumeToMove.folderId)
+                .filter(folder => folder.id !== resumeToMove.folderId)
                 .map((folder) => (
                   <button
                     key={folder.id}
@@ -618,6 +806,22 @@ export default function Resume() {
                     <span className="font-medium text-gray-900">{folder.name}</span>
                   </button>
                 ))}
+              
+              {folders.filter(folder => folder.id !== resumeToMove.folderId).length === 0 && resumeToMove.folderId === 'uncategorized' && (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">No other folders available</p>
+                  <button
+                    onClick={() => {
+                      setShowMoveModal(false);
+                      setResumeToMove(null);
+                      setShowNewFolderForm(true);
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-3"
+                  >
+                    Create New Folder
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button
