@@ -107,7 +107,7 @@ export default function Profile() {
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-8 text-white">
           <div className="flex flex-col md:flex-row items-center">
             <div className="relative mb-4 md:mb-0 md:mr-6">
-              <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center overflow-hidden">
+              <label className={`w-24 h-24 bg-white/20 rounded-full flex items-center justify-center overflow-hidden ${isEditing ? 'cursor-pointer hover:bg-white/30 transition-colors' : ''}`}>
                 {profilePicture ? (
                   <img 
                     src={profilePicture} 
@@ -117,9 +117,6 @@ export default function Profile() {
                 ) : (
                   <User className="h-12 w-12" />
                 )}
-              </div>
-              <label className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                <Camera className="h-4 w-4" />
                 {isEditing && (
                   <input
                     type="file"
@@ -129,6 +126,9 @@ export default function Profile() {
                   />
                 )}
               </label>
+              <div className="absolute bottom-0 right-0 bg-white text-blue-600 p-2 rounded-full shadow-lg">
+                <Camera className="h-4 w-4" />
+              </div>
             </div>
             <div className="text-center md:text-left flex-1">
               <h1 className="text-3xl font-bold mb-2">
