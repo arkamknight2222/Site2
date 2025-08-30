@@ -18,6 +18,7 @@ import Support from './pages/Support';
 import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import PointsHistory from './pages/PointsHistory';
+import Resume from './pages/Resume';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { JobProvider } from './context/JobContext';
 
@@ -53,6 +54,7 @@ function AppContent() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/points-history" element={user ? <PointsHistory /> : <Navigate to="/login" />} />
+          <Route path="/resume" element={user ? <Resume /> : <Navigate to="/login" />} />
         </Routes>
       </main>
       <Footer />

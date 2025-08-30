@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Calendar, Clock, Users, Star, Building, ArrowLeft, Zap } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
+import ResumeSelector from '../components/ResumeSelector';
 
 export default function EventDetails() {
   const { id } = useParams();
@@ -10,6 +11,7 @@ export default function EventDetails() {
   const { user, updateUser } = useAuth();
   const [isRegistering, setIsRegistering] = useState(false);
   const [hasRegistered, setHasRegistered] = useState(false);
+  const [showResumeSelector, setShowResumeSelector] = useState(false);
 
   const event = getJob(id || '');
 
@@ -33,11 +35,34 @@ export default function EventDetails() {
   const canAfford = !user || user.points >= event.minimumPoints;
   const eventDate = new Date(event.eventDate || '');
 
-  const handleRegister = async () => {
+  const handleQuickRegister = async () => {
     if (!user) {
       return;
     }
 
+    // Use default resume for quick register
+    const savedResumes = localStorage.getItem('rushWorkingResumes');
+    if (savedResumes) {
+      const resumes = JSON.parse(savedResumes);
+      const defaultResume = resumes.find((r: any) => r.isDefault);
+      if (defaultResume) {
+        await submitRegistration(defaultResume);
+      } else {
+        setShowResumeSelector(true);
+      }
+    } else {
+      alert('Please upload a resume first');
+    }
+  };
+
+  const handleSelectResume = () => {
+    if (!user) {
+      return;
+    }
+    setShowResumeSelector(true);
+  };
+
+  const submitRegistration = async (resume: any) => {
     setIsRegistering(true);
     
     // Simulate API call
@@ -46,8 +71,9 @@ export default function EventDetails() {
       const currentPoints = user.points || 0;
       updateUser({ points: currentPoints + 10 });
       setHasRegistered(true);
-      alert('Registration successful! You earned 10 points. Check your email for event details.');
+      alert(`Registration successful with "${resume.name}"! You earned 10 points. Check your email for event details.`);
       setIsRegistering(false);
+      setShowResumeSelector(false);
     }, 1000);
   };
 
@@ -166,26 +192,39 @@ export default function EventDetails() {
                     ✓ Registered Successfully
                   </button>
                 ) : event.requiresApplication ? (
-                  <button
-                    onClick={handleRegister}
-                    disabled={isRegistering || !canAfford}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-                      canAfford
-                        ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {isRegistering ? (
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Registering...
-                      </div>
-                    ) : canAfford ? (
-                      'Register Now'
-                    ) : (
-                      'Need More Points'
-                    )}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleQuickRegister}
+                      disabled={isRegistering || !canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {isRegistering ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Registering...
+                        </div>
+                      ) : canAfford ? (
+                        'Quick Register'
+                      ) : (
+                        'Need More Points'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleSelectResume}
+                      disabled={!canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {canAfford ? 'Register with Resume' : 'Need More Points'}
+                    </button>
+                  </div>
                 ) : (
                   <div className="text-center">
                     <div className="bg-green-100 text-green-800 py-3 px-4 rounded-lg font-semibold mb-3">
@@ -288,6 +327,14 @@ export default function EventDetails() {
           </div>
         </div>
       </div>
+
+      {/* Resume Selector Modal */}
+      <ResumeSelector
+        isOpen={showResumeSelector}
+        onClose={() => setShowResumeSelector(false)}
+        onSelect={(resume) => submitRegistration(resume)}
+        jobTitle={event.title}
+      />
     </div>
   );
 }

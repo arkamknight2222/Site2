@@ -87,6 +87,12 @@ export default function Header() {
                         Profile
                       </Link>
                       <Link
+                        to="/resume"
+                        className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors"
+                      >
+                        Resume Manager
+                      </Link>
+                      <Link
                         to="/tracker"
                         className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors"
                       >

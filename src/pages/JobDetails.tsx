@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, Zap } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
+import ResumeSelector from '../components/ResumeSelector';
 
 export default function JobDetails() {
   const { id } = useParams();
@@ -10,6 +11,8 @@ export default function JobDetails() {
   const { user, updateUser } = useAuth();
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [showResumeSelector, setShowResumeSelector] = useState(false);
+  const [selectedResume, setSelectedResume] = useState<any>(null);
 
   const job = getJob(id || '');
 
@@ -32,12 +35,34 @@ export default function JobDetails() {
 
   const canAfford = !user || user.points >= job.minimumPoints;
 
-  const handleApply = async () => {
+  const handleQuickApply = async () => {
     if (!user) {
-      // Redirect to login
       return;
     }
 
+    // Use default resume for quick apply
+    const savedResumes = localStorage.getItem('rushWorkingResumes');
+    if (savedResumes) {
+      const resumes = JSON.parse(savedResumes);
+      const defaultResume = resumes.find((r: any) => r.isDefault);
+      if (defaultResume) {
+        await submitApplication(defaultResume);
+      } else {
+        setShowResumeSelector(true);
+      }
+    } else {
+      alert('Please upload a resume first');
+    }
+  };
+
+  const handleSelectResume = () => {
+    if (!user) {
+      return;
+    }
+    setShowResumeSelector(true);
+  };
+
+  const submitApplication = async (resume: any) => {
     setIsApplying(true);
     
     // Simulate API call
@@ -48,9 +73,11 @@ export default function JobDetails() {
         const currentPoints = user.points || 0;
         updateUser({ points: currentPoints + 10 });
         setHasApplied(true);
-        alert('Application submitted successfully! You earned 10 points.');
+        alert(`Application submitted successfully with "${resume.name}"! You earned 10 points.`);
       }
       setIsApplying(false);
+      setShowResumeSelector(false);
+      setSelectedResume(null);
     }, 1000);
   };
 
@@ -156,26 +183,39 @@ export default function JobDetails() {
                     ✓ Applied Successfully
                   </button>
                 ) : (
-                  <button
-                    onClick={handleApply}
-                    disabled={isApplying || !canAfford}
-                    className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-                      canAfford
-                        ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {isApplying ? (
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Applying...
-                      </div>
-                    ) : canAfford ? (
-                      'Apply Now'
-                    ) : (
-                      'Need More Points'
-                    )}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleQuickApply}
+                      disabled={isApplying || !canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {isApplying ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Applying...
+                        </div>
+                      ) : canAfford ? (
+                        'Quick Apply'
+                      ) : (
+                        'Need More Points'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleSelectResume}
+                      disabled={!canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {canAfford ? 'Apply with Resume' : 'Need More Points'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -259,6 +299,14 @@ export default function JobDetails() {
           </div>
         </div>
       </div>
+
+      {/* Resume Selector Modal */}
+      <ResumeSelector
+        isOpen={showResumeSelector}
+        onClose={() => setShowResumeSelector(false)}
+        onSelect={(resume) => submitApplication(resume)}
+        jobTitle={job.title}
+      />
     </div>
   );
 }

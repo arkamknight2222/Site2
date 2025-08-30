@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp, TrendingDown, ArrowRight } from 'lucide-react';
+import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp, TrendingDown, ArrowRight, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StatsCard from '../components/StatsCard';
 import PointsDisplay from '../components/PointsDisplay';
