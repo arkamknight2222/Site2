@@ -55,6 +55,11 @@ export default function Resume() {
   const [viewingResume, setViewingResume] = useState<ResumeFile | null>(null);
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resumeToMove, setResumeToMove] = useState<ResumeFile | null>(null);
+  const [selectedResumes, setSelectedResumes] = useState<string[]>([]);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string } | null>(null);
+  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
   const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
     sortBy: 'date',
