@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Star, X } from 'lucide-react';
+import { FileText, Star, X, Eye, Download } from 'lucide-react';
 
 interface ResumeFile {
   id: string;
