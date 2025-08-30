@@ -56,6 +56,11 @@ export default function Resume() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resumeToMove, setResumeToMove] = useState<ResumeFile | null>(null);
 
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
   // Save to localStorage whenever data changes
   useEffect(() => {
     localStorage.setItem('rushWorkingResumeFolders', JSON.stringify(folders));
@@ -235,20 +240,14 @@ export default function Resume() {
     setShowMoveModal(false);
     setResumeToMove(null);
     
-    const targetFolder = folders.find(f => f.id === targetFolderId);
-    alert(`Resume moved to "${targetFolder?.name}" successfully!`);
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`Resume moved to "${targetFolderName}" successfully!`);
   };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
-    // For "All Resumes", we'll store the sorting preference separately
     const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
     setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
   };
-
-  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
 
   const getFilteredAndSortedResumes = () => {
     let filtered = selectedFolder === 'all' 
