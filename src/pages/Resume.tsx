@@ -763,6 +763,160 @@ export default function Resume() {
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirmation && itemToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Confirm Deletion</h2>
+            <div className="mb-6">
+              {itemToDelete.type === 'folder' ? (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to delete the folder "{itemToDelete.name}"?
+                  </p>
+                  {(() => {
+                    const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
+                    if (folderResumes.length > 0) {
+                      return (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <p className="text-yellow-800 text-sm">
+                            <strong>Warning:</strong> This folder contains {folderResumes.length} resume{folderResumes.length !== 1 ? 's' : ''}. 
+                            All resumes will be moved to "Uncategorized".
+                          </p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              ) : itemToDelete.id === 'bulk' ? (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to delete the selected resumes?
+                  </p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800 text-sm">
+                      <strong>Warning:</strong> This action cannot be undone.
+                    </p>
+                    <p className="text-red-700 text-xs mt-2">
+                      {itemToDelete.name}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-gray-600 mb-4">
+                    Are you sure you want to delete "{itemToDelete.name}"?
+                  </p>
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800 text-sm">
+                      <strong>Warning:</strong> This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirmation(false);
+                  setItemToDelete(null);
+                }}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (itemToDelete.id === 'bulk') {
+                    // Handle bulk delete
+                    const hasDefault = selectedResumes.some(id => {
+                      const resume = resumes.find(r => r.id === id);
+                      return resume?.isDefault;
+                    });
+                    
+                    setResumes(prev => prev.filter(r => !selectedResumes.includes(r.id)));
+                    
+                    // If deleted resume was default, set another as default
+                    if (hasDefault) {
+                      const remainingResumes = resumes.filter(r => !selectedResumes.includes(r.id));
+                      if (remainingResumes.length > 0) {
+                        setDefaultResume(remainingResumes[0].id);
+                      }
+                    }
+                    
+                    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`);
+                    clearSelection();
+                  } else {
+                    handleConfirmDelete();
+                  }
+                }}
+                className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
+              >
+                Delete {itemToDelete.type === 'folder' ? 'Folder' : itemToDelete.id === 'bulk' ? 'Selected' : 'Resume'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Move Modal */}
+      {showBulkMoveModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Move Selected Resumes</h2>
+            <p className="text-gray-600 mb-4">
+              Move {selectedResumes.length} selected resume{selectedResumes.length !== 1 ? 's' : ''} to:
+            </p>
+            <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+              {/* Uncategorized option */}
+              <button
+                onClick={() => bulkMoveResumes('uncategorized')}
+                className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+              >
+                <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                <span className="font-medium text-gray-900">Uncategorized</span>
+              </button>
+              
+              {/* Custom folders */}
+              {folders.map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => bulkMoveResumes(folder.id)}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+                >
+                  <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                  <span className="font-medium text-gray-900">{folder.name}</span>
+                </button>
+              ))}
+              
+              {folders.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">No folders available</p>
+                  <button
+                    onClick={() => {
+                      setShowBulkMoveModal(false);
+                      setShowNewFolderForm(true);
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-3"
+                  >
+                    Create New Folder
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBulkMoveModal(false)}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
