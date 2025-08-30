@@ -30,6 +30,8 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
   const [folders, setFolders] = useState<ResumeFolder[]>([]);
   const [resumes, setResumes] = useState<ResumeFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState('all');
+  const [selectedResume, setSelectedResume] = useState<ResumeFile | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -153,7 +155,10 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
                 {filteredResumes.map((resume) => (
                   <button
                     key={resume.id}
-                    onClick={() => onSelect(resume)}
+                    onClick={() => {
+                      setSelectedResume(resume);
+                      setShowConfirmation(true);
+                    }}
                     className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all"
                   >
                     <div className="flex items-center">
@@ -244,6 +249,63 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && selectedResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Confirm Resume Selection</h3>
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                You're about to apply {jobTitle ? `for "${jobTitle}"` : ''} using:
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{selectedResume.name}</h4>
+                    <p className="text-gray-600 text-sm">{selectedResume.fileName}</p>
+                    <div className="flex items-center text-xs text-gray-500 space-x-2 mt-1">
+                      <span>{formatFileSize(selectedResume.size)}</span>
+                      <span>•</span>
+                      <span>Uploaded {formatDate(selectedResume.uploadDate)}</span>
+                      {selectedResume.isDefault && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600 font-medium">Default</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  onSelect(selectedResume);
+                  setShowConfirmation(false);
+                  setSelectedResume(null);
+                }}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+              >
+                Confirm & Apply
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmation(false);
+                  setSelectedResume(null);
+                }}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
