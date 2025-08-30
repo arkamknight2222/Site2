@@ -55,6 +55,8 @@ export default function Resume() {
   const [newFolderName, setNewFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingResume, setViewingResume] = useState<ResumeFile | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [resumeToMove, setResumeToMove] = useState<ResumeFile | null>(null);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
@@ -198,6 +200,18 @@ export default function Resume() {
     }));
   };
 
+  const moveResumeToFolder = (resumeId: string, targetFolderId: string) => {
+    setResumes(prev => prev.map(resume => 
+      resume.id === resumeId 
+        ? { ...resume, folderId: targetFolderId }
+        : resume
+    ));
+    setShowMoveModal(false);
+    setResumeToMove(null);
+    
+    const targetFolder = folders.find(f => f.id === targetFolderId);
+    alert(`Resume moved to "${targetFolder?.name}" successfully!`);
+  };
   const getFilteredAndSortedResumes = () => {
     let filtered = selectedFolder === 'all' 
       ? resumes 
@@ -376,7 +390,7 @@ export default function Resume() {
               </div>
 
               {/* Sort Controls */}
-              {currentFolder && selectedFolder !== 'all' && (
+              {currentFolder && (
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                   <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                   <button
@@ -477,6 +491,16 @@ export default function Resume() {
                             <Download className="h-4 w-4" />
                           </button>
                           <button
+                            onClick={() => {
+                              setResumeToMove(resume);
+                              setShowMoveModal(true);
+                            }}
+                            className="bg-purple-100 text-purple-600 p-2 rounded-lg hover:bg-purple-200 transition-colors"
+                            title="Move to folder"
+                          >
+                            <FolderPlus className="h-4 w-4" />
+                          </button>
+                          <button
                             onClick={() => deleteResume(resume.id)}
                             className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
                             title="Delete resume"
@@ -568,6 +592,43 @@ export default function Resume() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Resume Modal */}
+      {showMoveModal && resumeToMove && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Move Resume</h2>
+            <p className="text-gray-600 mb-4">
+              Move "{resumeToMove.name}" to a different folder:
+            </p>
+            <div className="space-y-2 mb-6">
+              {folders
+                .filter(folder => folder.id !== 'all' && folder.id !== resumeToMove.folderId)
+                .map((folder) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => moveResumeToFolder(resumeToMove.id, folder.id)}
+                    className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+                  >
+                    <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                    <span className="font-medium text-gray-900">{folder.name}</span>
+                  </button>
+                ))}
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowMoveModal(false);
+                  setResumeToMove(null);
+                }}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>
