@@ -61,6 +61,121 @@ export default function Resume() {
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string } | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
+    
+    if (itemToDelete.type === 'folder') {
+      const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
+      
+      if (folderResumes.length > 0) {
+        // Move all resumes to uncategorized
+        setResumes(prev => prev.map(resume => 
+          resume.folderId === itemToDelete.id 
+            ? { ...resume, folderId: 'uncategorized' }
+            : resume
+        ));
+      }
+      
+      setFolders(prev => prev.filter(f => f.id !== itemToDelete.id));
+      
+      // If we're currently viewing the deleted folder, switch to all
+      if (selectedFolder === itemToDelete.id) {
+        setSelectedFolder('all');
+      }
+      
+      alert(`Folder "${itemToDelete.name}" deleted successfully!`);
+    } else if (itemToDelete.type === 'resume') {
+      setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
+      
+      // If deleted resume was default, set another as default
+      const deletedResume = resumes.find(r => r.id === itemToDelete.id);
+      if (deletedResume?.isDefault) {
+        const remainingResumes = resumes.filter(r => r.id !== itemToDelete.id);
+        if (remainingResumes.length > 0) {
+          setDefaultResume(remainingResumes[0].id);
+        }
+      }
+      
+      alert(`Resume "${itemToDelete.name}" deleted successfully!`);
+    }
+    
+    setShowDeleteConfirmation(false);
+    setItemToDelete(null);
+  };
+
+  const clearSelection = () => {
+    setSelectedResumes([]);
+    setIsSelectionMode(false);
+  };
+
+  const toggleResumeSelection = (resumeId: string) => {
+    setSelectedResumes(prev => 
+      prev.includes(resumeId)
+        ? prev.filter(id => id !== resumeId)
+        : [...prev, resumeId]
+    );
+  };
+
+  const selectAllResumes = () => {
+    const allResumeIds = filteredResumes.map(r => r.id);
+    setSelectedResumes(allResumeIds);
+  };
+
+  const bulkDeleteResumes = () => {
+    if (selectedResumes.length === 0) return;
+    
+    const resumeNames = selectedResumes.map(id => {
+      const resume = resumes.find(r => r.id === id);
+      return resume?.name || 'Unknown';
+    }).join(', ');
+    
+    setItemToDelete({
+      type: 'resume',
+      id: 'bulk',
+      name: resumeNames
+    });
+    setShowDeleteConfirmation(true);
+  };
+
+  const bulkMoveResumes = (targetFolderId: string) => {
+    setResumes(prev => prev.map(resume => 
+      selectedResumes.includes(resume.id)
+        ? { ...resume, folderId: targetFolderId }
+        : resume
+    ));
+    
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+    
+    setShowBulkMoveModal(false);
+    clearSelection();
+  };
+
+  const bulkDownloadResumes = () => {
+    if (selectedResumes.length === 0) return;
+    
+    selectedResumes.forEach(resumeId => {
+      const resume = resumes.find(r => r.id === resumeId);
+      if (resume) {
+        // Create a mock download for each resume
+        const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+        const blob = new Blob([mockContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = resume.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    });
+    
+    alert(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`);
+    clearSelection();
+  };
+
   const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
     sortBy: 'date',
     sortOrder: 'desc'
@@ -147,26 +262,13 @@ export default function Resume() {
     
     const folderResumes = resumes.filter(r => r.folderId === folderId);
     
-    if (folderResumes.length > 0) {
-      const confirmMessage = `This folder contains ${folderResumes.length} resume${folderResumes.length !== 1 ? 's' : ''}. Deleting the folder will move all resumes to "Uncategorized". Continue?`;
-      if (!window.confirm(confirmMessage)) return;
-      
-      // Move all resumes to uncategorized
-      setResumes(prev => prev.map(resume => 
-        resume.folderId === folderId 
-          ? { ...resume, folderId: 'uncategorized' }
-          : resume
-      ));
-    }
-    
-    setFolders(prev => prev.filter(f => f.id !== folderId));
-    
-    // If we're currently viewing the deleted folder, switch to all
-    if (selectedFolder === folderId) {
-      setSelectedFolder('all');
-    }
-    
-    alert(`Folder "${folder.name}" deleted successfully!`);
+    setItemToDelete({
+      type: 'folder',
+      id: folderId,
+      name: folder.name,
+      resumesInFolder: folderResumes.length
+    });
+    setShowDeleteConfirmation(true);
   };
 
   const setDefaultResume = (resumeId: string) => {
@@ -189,17 +291,12 @@ export default function Resume() {
     const resume = resumes.find(r => r.id === resumeId);
     if (!resume) return;
     
-    if (window.confirm(`Are you sure you want to delete "${resume.name}"?`)) {
-      setResumes(prev => prev.filter(r => r.id !== resumeId));
-      
-      // If deleted resume was default, set another as default
-      if (resume.isDefault) {
-        const remainingResumes = resumes.filter(r => r.id !== resumeId);
-        if (remainingResumes.length > 0) {
-          setDefaultResume(remainingResumes[0].id);
-        }
-      }
-    }
+    setItemToDelete({
+      type: 'resume',
+      id: resumeId,
+      name: resume.name
+    });
+    setShowDeleteConfirmation(true);
   };
 
   const viewResume = (resume: ResumeFile) => {
