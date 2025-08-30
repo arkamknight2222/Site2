@@ -456,42 +456,45 @@ export default function Profile() {
 
             {/* Sidebar */}
             <div className="space-y-6">
-              {/* Status Information */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Veteran Status:</span>
-                    <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
-                      {formData.isVeteran ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Citizenship:</span>
-                    <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
-                      {formData.isCitizen ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Background Check:</span>
-                    <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
-                    </span>
+              {/* Status Information and Resume */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Status Information */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
+                  <div className="space-y-4 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Veteran Status:</span>
+                      <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isVeteran ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Citizenship:</span>
+                      <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isCitizen ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Background Check:</span>
+                      <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
+                        {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Resume */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Resume</h3>
-                <div className="text-center">
-                  <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600 mb-4">
-                    {user?.resumeUrl ? 'Resume uploaded' : 'No resume uploaded'}
-                  </p>
-                  <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                    {user?.resumeUrl ? 'Update Resume' : 'Upload Resume'}
-                  </button>
+                {/* Resume */}
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Resume</h3>
+                  <div className="text-center">
+                    <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 mb-4">
+                      {user?.resumeUrl ? 'Resume uploaded' : 'No resume uploaded'}
+                    </p>
+                    <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                      {user?.resumeUrl ? 'Update Resume' : 'Upload Resume'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
