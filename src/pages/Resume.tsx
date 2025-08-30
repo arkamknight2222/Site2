@@ -56,6 +56,11 @@ export default function Resume() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resumeToMove, setResumeToMove] = useState<ResumeFile | null>(null);
 
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
   // Save to localStorage whenever data changes
   useEffect(() => {
     localStorage.setItem('rushWorkingResumeFolders', JSON.stringify(folders));
@@ -235,20 +240,14 @@ export default function Resume() {
     setShowMoveModal(false);
     setResumeToMove(null);
     
-    const targetFolder = folders.find(f => f.id === targetFolderId);
-    alert(`Resume moved to "${targetFolder?.name}" successfully!`);
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`Resume moved to "${targetFolderName}" successfully!`);
   };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
-    // For "All Resumes", we'll store the sorting preference separately
     const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
     setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
   };
-
-  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
 
   const getFilteredAndSortedResumes = () => {
     let filtered = selectedFolder === 'all' 
@@ -703,9 +702,21 @@ export default function Resume() {
             <p className="text-gray-600 mb-4">
               Move "{resumeToMove.name}" to a different folder:
             </p>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+              {/* Uncategorized option */}
+              {resumeToMove.folderId !== 'uncategorized' && (
+                <button
+                  onClick={() => moveResumeToFolder(resumeToMove.id, 'uncategorized')}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+                >
+                  <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                  <span className="font-medium text-gray-900">Uncategorized</span>
+                </button>
+              )}
+              
+              {/* Custom folders */}
               {folders
-                .filter(folder => folder.id !== 'all' && folder.id !== resumeToMove.folderId)
+                .filter(folder => folder.id !== resumeToMove.folderId)
                 .map((folder) => (
                   <button
                     key={folder.id}
@@ -716,6 +727,22 @@ export default function Resume() {
                     <span className="font-medium text-gray-900">{folder.name}</span>
                   </button>
                 ))}
+              
+              {folders.filter(folder => folder.id !== resumeToMove.folderId).length === 0 && resumeToMove.folderId === 'uncategorized' && (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">No other folders available</p>
+                  <button
+                    onClick={() => {
+                      setShowMoveModal(false);
+                      setResumeToMove(null);
+                      setShowNewFolderForm(true);
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-3"
+                  >
+                    Create New Folder
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button
