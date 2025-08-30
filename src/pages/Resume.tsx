@@ -56,6 +56,11 @@ export default function Resume() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [resumeToMove, setResumeToMove] = useState<ResumeFile | null>(null);
 
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
   // Save to localStorage whenever data changes
   useEffect(() => {
     localStorage.setItem('rushWorkingResumeFolders', JSON.stringify(folders));
@@ -240,15 +245,9 @@ export default function Resume() {
   };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
-    // For "All Resumes", we'll store the sorting preference separately
     const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
     setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
   };
-
-  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
 
   const getFilteredAndSortedResumes = () => {
     let filtered = selectedFolder === 'all' 
@@ -488,46 +487,46 @@ export default function Resume() {
               </div>
 
               {/* Sort Controls */}
-              {currentFolder && (
+              {(currentFolder || selectedFolder === 'all') && (
                 <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
                   <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'name')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'name'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Name
-                    {currentFolder.sortBy === 'name' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'date')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('date') : updateSort(selectedFolder, 'date')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'date'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Date
-                    {currentFolder.sortBy === 'date' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                   <button
-                    onClick={() => updateSort(selectedFolder, 'size')}
+                    onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('size') : updateSort(selectedFolder, 'size')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                      currentFolder.sortBy === 'size'
+                      (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size'
                         ? 'bg-blue-100 text-blue-600'
                         : 'text-gray-600 hover:bg-gray-100'
                     }`}
                   >
                     Size
-                    {currentFolder.sortBy === 'size' && (
-                      currentFolder.sortOrder === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                    {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size' && (
+                      (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
                 </div>
@@ -703,9 +702,21 @@ export default function Resume() {
             <p className="text-gray-600 mb-4">
               Move "{resumeToMove.name}" to a different folder:
             </p>
-            <div className="space-y-2 mb-6">
+            <div className="space-y-2 mb-6 max-h-60 overflow-y-auto">
+              {/* Uncategorized option */}
+              {resumeToMove.folderId !== 'uncategorized' && (
+                <button
+                  onClick={() => moveResumeToFolder(resumeToMove.id, 'uncategorized')}
+                  className="w-full text-left p-3 border border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors flex items-center"
+                >
+                  <Folder className="h-4 w-4 mr-3 text-gray-500" />
+                  <span className="font-medium text-gray-900">Uncategorized</span>
+                </button>
+              )}
+              
+              {/* Custom folders */}
               {folders
-                .filter(folder => folder.id !== 'all' && folder.id !== resumeToMove.folderId)
+                .filter(folder => folder.id !== resumeToMove.folderId)
                 .map((folder) => (
                   <button
                     key={folder.id}
@@ -716,6 +727,22 @@ export default function Resume() {
                     <span className="font-medium text-gray-900">{folder.name}</span>
                   </button>
                 ))}
+              
+              {folders.filter(folder => folder.id !== resumeToMove.folderId).length === 0 && resumeToMove.folderId === 'uncategorized' && (
+                <div className="text-center py-6">
+                  <p className="text-gray-500 text-sm">No other folders available</p>
+                  <button
+                    onClick={() => {
+                      setShowMoveModal(false);
+                      setResumeToMove(null);
+                      setShowNewFolderForm(true);
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm mt-3"
+                  >
+                    Create New Folder
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
               <button
