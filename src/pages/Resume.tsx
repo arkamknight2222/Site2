@@ -24,6 +24,18 @@ interface ResumeFolder {
 export default function Resume() {
   const { user, updateUser } = useAuth();
   const [folders, setFolders] = useState<ResumeFolder[]>([
+    {
+      id: 'all',
+      name: 'All Resumes',
+      sortBy: 'date',
+      sortOrder: 'desc',
+    },
+    {
+      id: 'uncategorized',
+      name: 'Uncategorized',
+      sortBy: 'date',
+      sortOrder: 'desc',
+    }
   ]);
   const [resumes, setResumes] = useState<ResumeFile[]>([
     {
@@ -131,6 +143,34 @@ export default function Resume() {
     setShowNewFolderForm(false);
   };
 
+  const deleteFolder = (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const folderResumes = resumes.filter(r => r.folderId === folderId);
+    
+    if (folderResumes.length > 0) {
+      const confirmMessage = `This folder contains ${folderResumes.length} resume${folderResumes.length !== 1 ? 's' : ''}. Deleting the folder will move all resumes to "Uncategorized". Continue?`;
+      if (!window.confirm(confirmMessage)) return;
+      
+      // Move all resumes to uncategorized
+      setResumes(prev => prev.map(resume => 
+        resume.folderId === folderId 
+          ? { ...resume, folderId: 'uncategorized' }
+          : resume
+      ));
+    }
+    
+    setFolders(prev => prev.filter(f => f.id !== folderId));
+    
+    // If we're currently viewing the deleted folder, switch to all
+    if (selectedFolder === folderId) {
+      setSelectedFolder('all');
+    }
+    
+    alert(`Folder "${folder.name}" deleted successfully!`);
+  };
+
   const setDefaultResume = (resumeId: string) => {
     setResumes(prev => prev.map(resume => ({
       ...resume,
@@ -210,6 +250,18 @@ export default function Resume() {
     const targetFolder = folders.find(f => f.id === targetFolderId);
     alert(`Resume moved to "${targetFolder?.name}" successfully!`);
   };
+
+  const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
+    // For "All Resumes", we'll store the sorting preference separately
+    const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
+    setAllResumesSorting({ sortBy, sortOrder: currentSortOrder });
+  };
+
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
   const getFilteredAndSortedResumes = () => {
     let filtered = selectedFolder === 'all' 
       ? resumes 
@@ -224,26 +276,40 @@ export default function Resume() {
     }
 
     // Apply sorting
-    const currentFolder = folders.find(f => f.id === selectedFolder);
-    if (currentFolder) {
-      filtered.sort((a, b) => {
-        let comparison = 0;
-        
-        switch (currentFolder.sortBy) {
-          case 'name':
-            comparison = a.name.localeCompare(b.name);
-            break;
-          case 'date':
-            comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
-            break;
-          case 'size':
-            comparison = a.size - b.size;
-            break;
-        }
-        
-        return currentFolder.sortOrder === 'asc' ? comparison : -comparison;
-      });
+    let sortBy: 'name' | 'date' | 'size';
+    let sortOrder: 'asc' | 'desc';
+    
+    if (selectedFolder === 'all') {
+      sortBy = allResumesSorting.sortBy;
+      sortOrder = allResumesSorting.sortOrder;
+    } else {
+      const currentFolder = folders.find(f => f.id === selectedFolder);
+      if (currentFolder) {
+        sortBy = currentFolder.sortBy;
+        sortOrder = currentFolder.sortOrder;
+      } else {
+        sortBy = 'date';
+        sortOrder = 'desc';
+      }
     }
+    
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'date':
+          comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+          break;
+        case 'size':
+          comparison = a.size - b.size;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
     return filtered;
   };
@@ -477,14 +543,14 @@ export default function Resume() {
                           <button
                             className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
                             title="View resume"
-                           onClick={() => viewResume(resume)}
+                            onClick={() => viewResume(resume)}
                           >
                             <Eye className="h-4 w-4" />
                           </button>
                           <button
                             className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
                             title="Download resume"
-                           onClick={() => downloadResume(resume)}
+                            onClick={() => downloadResume(resume)}
                           >
                             <Download className="h-4 w-4" />
                           </button>
@@ -634,5 +700,3 @@ export default function Resume() {
     </div>
   );
 }
-
-export default Resume
