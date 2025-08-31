@@ -435,44 +435,18 @@ export default function Profile() {
                   <div className="text-center">
                     <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 mb-4">
-                      {user?.resumeUrl ? (
-                        <>
-                          <span className="text-green-600 font-medium">✓ Resume uploaded</span>
-                          <br />
-                          <span className="text-xs text-gray-500">
-                            {(user as any)?.resumeFileName || 'resume.pdf'}
-                          </span>
-                          <br />
-                          <span className="text-xs text-blue-600 font-medium">
-                            {(() => {
-                              const savedResumes = localStorage.getItem('rushWorkingResumes');
-                              const resumeCount = savedResumes ? JSON.parse(savedResumes).length : 0;
-                              return `${resumeCount} resume${resumeCount !== 1 ? 's' : ''} total`;
-                            })()}
-                          </span>
-                        </>
-                      ) : (
-                        'No resume uploaded'
-                      )}
+                      {(() => {
+                        const savedResumes = localStorage.getItem('rushWorkingResumes');
+                        const resumeCount = savedResumes ? JSON.parse(savedResumes).length : 0;
+                        return `You have ${resumeCount} resume${resumeCount !== 1 ? 's' : ''} uploaded`;
+                      })()}
                     </p>
-                    <div className="space-y-2">
-                      <label className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors cursor-pointer inline-block">
-                        {user?.resumeUrl ? 'Update Resume' : 'Upload Resume'}
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx"
-                          onChange={handleResumeChange}
-                          className="hidden"
-                        />
-                      </label>
-                      <br />
-                      <Link
-                        to="/resume"
-                        className="bg-gray-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-gray-700 transition-colors inline-block"
-                      >
-                        See Details
-                      </Link>
-                    </div>
+                    <Link
+                      to="/resume"
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors inline-block"
+                    >
+                      See Details
+                    </Link>
                   </div>
                 </div>
               </div>
