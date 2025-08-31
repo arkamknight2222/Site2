@@ -554,12 +554,12 @@ export default function Resume() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {folders.find(f => f.id === selectedFolder)?.name || 'Resumes'}
-                  </h2>
-                  <p className="text-gray-600 text-sm">
-                    {filteredResumes.length} resume{filteredResumes.length !== 1 ? 's' : ''}
-                  </p>
+ <h2 className="text-xl font-bold text-gray-900">
+ {folders.find(f => f.id === selectedFolder)?.name || 'Resumes'}
+ </h2>
+ <p className="text-gray-600 text-sm">
+ {filteredResumes.length} resume{filteredResumes.length !== 1 ? 's' : ''}
+ </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Search */}
@@ -568,7 +568,7 @@ export default function Resume() {
                     <input
                       type="text"
                       placeholder="Search resumes..."
-                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-48"
+                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-full sm:w-48"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -589,9 +589,10 @@ export default function Resume() {
               </div>
 
               {/* Sort Controls */}
-              {(currentFolder || selectedFolder === 'all') && (
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-600 mr-2">Sort by:</span>
+              {(currentFolder || selectedFolder === 'all') && ( /* Ensure this div is always present for sorting */
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2"> {/* Group for sort controls */}
+                    <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                   <button
                     onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
@@ -631,6 +632,25 @@ export default function Resume() {
                       (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
+                  </div>
+                  {/* Quick Select Button */}
+                  {isSelectionMode ? (
+                    <button
+                      onClick={clearSelection}
+                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      title="Cancel Selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsSelectionMode(true)}
+                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                      title="Quick Select"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
