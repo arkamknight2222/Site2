@@ -66,6 +66,34 @@ export default function Resume() {
       ...resume,
       isDefault: resume.id === resumeId
     })));
+    
+    const resume = resumes.find(r => r.id === resumeId);
+    if (resume) {
+      alert(`"${resume.name}" set as default resume!`);
+    }
+  };
+
+  const viewResume = (resume: ResumeFile) => {
+    setViewingResume(resume);
+  };
+
+  const downloadResume = (resume: ResumeFile) => {
+    const link = document.createElement('a');
+    link.href = '#'; // In real app, this would be the actual file URL
+    link.download = resume.fileName;
+    
+    // Create a mock blob for demonstration
+    const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+    const blob = new Blob([mockContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(`Downloading ${resume.fileName}...`);
   };
 
   const handleConfirmDelete = () => {
@@ -288,30 +316,6 @@ export default function Resume() {
       name: resume.name
     });
     setShowDeleteConfirmation(true);
-  };
-
-  const viewResume = (resume: ResumeFile) => {
-    setViewingResume(resume);
-  };
-
-  const downloadResume = (resume: ResumeFile) => {
-    // Create a mock download link
-    const link = document.createElement('a');
-    link.href = '#'; // In real app, this would be the actual file URL
-    link.download = resume.fileName;
-    
-    // Create a mock blob for demonstration
-    const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
-    const blob = new Blob([mockContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    
-    link.href = url;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    alert(`Downloading ${resume.fileName}...`);
   };
 
   const updateSort = (folderId: string, sortBy: 'name' | 'date' | 'size') => {
@@ -625,23 +629,16 @@ export default function Resume() {
                   </button>
                   </div>
                   {/* Quick Select Button */}
-                  {isSelectionMode ? (
-                    <button
-                      onClick={clearSelection}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      title="Cancel Selection"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setIsSelectionMode(true)}
-                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      title="Quick Select"
-                    >
-                      <CheckSquare className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => isSelectionMode ? clearSelection() : setIsSelectionMode(true)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      isSelectionMode
+                        ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {isSelectionMode ? 'Cancel Select' : 'Quick Select'}
+                  </button>
                 </div>
               )}
             </div>
