@@ -59,6 +59,7 @@ export default function Resume() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
+  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
   const setDefaultResume = (resumeId: string) => {
     setResumes(prev => prev.map(resume => ({
