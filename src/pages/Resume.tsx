@@ -59,8 +59,10 @@ export default function Resume() {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
-  const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
+  // Set default folder to 'all' instead of 'uncategorized'
+  const [selectedFolder, setSelectedFolder] = useState('all');
+  
   const setDefaultResume = (resumeId: string) => {
     setResumes(prev => prev.map(resume => ({
       ...resume,
@@ -628,23 +630,84 @@ export default function Resume() {
                   {isSelectionMode ? (
                     <button
                       onClick={clearSelection}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      title="Cancel Selection"
+                      className="px-4 py-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors font-semibold"
                     >
-                      <X className="h-4 w-4" />
+                      Cancel Selection
                     </button>
                   ) : (
                     <button
                       onClick={() => setIsSelectionMode(true)}
-                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      title="Quick Select"
+                      className="px-4 py-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors font-semibold"
                     >
-                      <CheckSquare className="h-4 w-4" />
+                      Quick Select
                     </button>
                   )}
                 </div>
               )}
             </div>
+
+            {/* Bulk Actions Bar */}
+            {isSelectionMode && (
+              <div className="p-4 bg-blue-50 border-b border-blue-200">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <span className="text-blue-700 font-medium">
+                      {selectedResumes.length} of {filteredResumes.length} selected
+                    </span>
+                    <button
+                      onClick={selectAllResumes}
+                      className="px-3 py-1 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      className="px-3 py-1 rounded-lg bg-gray-600 text-white hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      Clear All
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={bulkDownloadResumes}
+                      disabled={selectedResumes.length === 0}
+                      className={`p-2 rounded-lg transition-colors ${
+                        selectedResumes.length === 0
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-green-100 text-green-600 hover:bg-green-200'
+                      }`}
+                      title="Download Selected"
+                    >
+                      <Download className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setShowBulkMoveModal(true)}
+                      disabled={selectedResumes.length === 0}
+                      className={`p-2 rounded-lg transition-colors ${
+                        selectedResumes.length === 0
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+                      }`}
+                      title="Move Selected"
+                    >
+                      <FolderPlus className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={bulkDeleteResumes}
+                      disabled={selectedResumes.length === 0}
+                      className={`p-2 rounded-lg transition-colors ${
+                        selectedResumes.length === 0
+                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                          : 'bg-red-100 text-red-600 hover:bg-red-200'
+                      }`}
+                      title="Delete Selected"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Resume List */}
             <div className="p-6">
@@ -652,6 +715,20 @@ export default function Resume() {
                 <div className="space-y-4">
                   {filteredResumes.map((resume) => (
                     <div key={resume.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      {/* Selection Checkbox */}
+                      {isSelectionMode && (
+                        <div className="mb-3">
+                          <label className="flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedResumes.includes(resume.id)}
+                              onChange={() => toggleResumeSelection(resume.id)}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                            />
+                            <span className="text-sm text-gray-600">Select this resume</span>
+                          </label>
+                        </div>
+                      )}
                       <div className="flex items-center justify-between">
                         <div className="flex items-center flex-1">
                           <div className="bg-blue-100 p-3 rounded-lg mr-4">
