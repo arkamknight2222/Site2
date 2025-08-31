@@ -872,20 +872,14 @@ export default function Resume() {
                   <p className="text-gray-600 mb-4">
                     Are you sure you want to delete the folder "{itemToDelete.name}"?
                   </p>
-                  {(() => {
-                    const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
-                    if (folderResumes.length > 0) {
-                      return (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                          <p className="text-yellow-800 text-sm">
-                            <strong>Warning:</strong> This folder contains {folderResumes.length} resume{folderResumes.length !== 1 ? 's' : ''}. 
-                            All resumes will be moved to "Uncategorized".
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {itemToDelete.resumesInFolder && itemToDelete.resumesInFolder > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-yellow-800 text-sm">
+                        <strong>Warning:</strong> This folder contains {itemToDelete.resumesInFolder} resume{itemToDelete.resumesInFolder !== 1 ? 's' : ''}. 
+                        All resumes will be moved to "Uncategorized".
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : itemToDelete.id === 'bulk' ? (
                 <div>
@@ -948,6 +942,8 @@ export default function Resume() {
                   } else {
                     handleConfirmDelete();
                   }
+                  setShowDeleteConfirmation(false);
+                  setItemToDelete(null);
                 }}
                 className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
