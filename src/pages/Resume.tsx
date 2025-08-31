@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc } from 'lucide-react';
+import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface ResumeFile {
@@ -60,6 +60,121 @@ export default function Resume() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string } | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
+    
+    if (itemToDelete.type === 'folder') {
+      const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
+      
+      if (folderResumes.length > 0) {
+        // Move all resumes to uncategorized
+        setResumes(prev => prev.map(resume => 
+          resume.folderId === itemToDelete.id 
+            ? { ...resume, folderId: 'uncategorized' }
+            : resume
+        ));
+      }
+      
+      setFolders(prev => prev.filter(f => f.id !== itemToDelete.id));
+      
+      // If we're currently viewing the deleted folder, switch to all
+      if (selectedFolder === itemToDelete.id) {
+        setSelectedFolder('all');
+      }
+      
+      alert(`Folder "${itemToDelete.name}" deleted successfully!`);
+    } else if (itemToDelete.type === 'resume') {
+      setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
+      
+      // If deleted resume was default, set another as default
+      const deletedResume = resumes.find(r => r.id === itemToDelete.id);
+      if (deletedResume?.isDefault) {
+        const remainingResumes = resumes.filter(r => r.id !== itemToDelete.id);
+        if (remainingResumes.length > 0) {
+          setDefaultResume(remainingResumes[0].id);
+        }
+      }
+      
+      alert(`Resume "${itemToDelete.name}" deleted successfully!`);
+    }
+    
+    setShowDeleteConfirmation(false);
+    setItemToDelete(null);
+  };
+
+  const clearSelection = () => {
+    setSelectedResumes([]);
+    setIsSelectionMode(false);
+  };
+
+  const toggleResumeSelection = (resumeId: string) => {
+    setSelectedResumes(prev => 
+      prev.includes(resumeId)
+        ? prev.filter(id => id !== resumeId)
+        : [...prev, resumeId]
+    );
+  };
+
+  const selectAllResumes = () => {
+    const allResumeIds = filteredResumes.map(r => r.id);
+    setSelectedResumes(allResumeIds);
+  };
+
+  const bulkDeleteResumes = () => {
+    if (selectedResumes.length === 0) return;
+    
+    const resumeNames = selectedResumes.map(id => {
+      const resume = resumes.find(r => r.id === id);
+      return resume?.name || 'Unknown';
+    }).join(', ');
+    
+    setItemToDelete({
+      type: 'resume',
+      id: 'bulk',
+      name: resumeNames
+    });
+    setShowDeleteConfirmation(true);
+  };
+
+  const bulkMoveResumes = (targetFolderId: string) => {
+    setResumes(prev => prev.map(resume => 
+      selectedResumes.includes(resume.id)
+        ? { ...resume, folderId: targetFolderId }
+        : resume
+    ));
+    
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+    
+    setShowBulkMoveModal(false);
+    clearSelection();
+  };
+
+  const bulkDownloadResumes = () => {
+    if (selectedResumes.length === 0) return;
+    
+    selectedResumes.forEach(resumeId => {
+      const resume = resumes.find(r => r.id === resumeId);
+      if (resume) {
+        // Create a mock download for each resume
+        const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+        const blob = new Blob([mockContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = resume.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    });
+    
+    alert(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`);
+    clearSelection();
+  };
 
   const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
     sortBy: 'date',
@@ -147,26 +262,13 @@ export default function Resume() {
     
     const folderResumes = resumes.filter(r => r.folderId === folderId);
     
-    if (folderResumes.length > 0) {
-      const confirmMessage = `This folder contains ${folderResumes.length} resume${folderResumes.length !== 1 ? 's' : ''}. Deleting the folder will move all resumes to "Uncategorized". Continue?`;
-      if (!window.confirm(confirmMessage)) return;
-      
-      // Move all resumes to uncategorized
-      setResumes(prev => prev.map(resume => 
-        resume.folderId === folderId 
-          ? { ...resume, folderId: 'uncategorized' }
-          : resume
-      ));
-    }
-    
-    setFolders(prev => prev.filter(f => f.id !== folderId));
-    
-    // If we're currently viewing the deleted folder, switch to all
-    if (selectedFolder === folderId) {
-      setSelectedFolder('all');
-    }
-    
-    alert(`Folder "${folder.name}" deleted successfully!`);
+    setItemToDelete({
+      type: 'folder',
+      id: folderId,
+      name: folder.name,
+      resumesInFolder: folderResumes.length
+    });
+    setShowDeleteConfirmation(true);
   };
 
   const setDefaultResume = (resumeId: string) => {
@@ -189,17 +291,12 @@ export default function Resume() {
     const resume = resumes.find(r => r.id === resumeId);
     if (!resume) return;
     
-    if (window.confirm(`Are you sure you want to delete "${resume.name}"?`)) {
-      setResumes(prev => prev.filter(r => r.id !== resumeId));
-      
-      // If deleted resume was default, set another as default
-      if (resume.isDefault) {
-        const remainingResumes = resumes.filter(r => r.id !== resumeId);
-        if (remainingResumes.length > 0) {
-          setDefaultResume(remainingResumes[0].id);
-        }
-      }
-    }
+    setItemToDelete({
+      type: 'resume',
+      id: resumeId,
+      name: resume.name
+    });
+    setShowDeleteConfirmation(true);
   };
 
   const viewResume = (resume: ResumeFile) => {
@@ -457,12 +554,12 @@ export default function Resume() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {folders.find(f => f.id === selectedFolder)?.name || 'Resumes'}
-                  </h2>
-                  <p className="text-gray-600 text-sm">
-                    {filteredResumes.length} resume{filteredResumes.length !== 1 ? 's' : ''}
-                  </p>
+ <h2 className="text-xl font-bold text-gray-900">
+ {folders.find(f => f.id === selectedFolder)?.name || 'Resumes'}
+ </h2>
+ <p className="text-gray-600 text-sm">
+ {filteredResumes.length} resume{filteredResumes.length !== 1 ? 's' : ''}
+ </p>
                 </div>
                 <div className="flex items-center gap-3">
                   {/* Search */}
@@ -471,7 +568,7 @@ export default function Resume() {
                     <input
                       type="text"
                       placeholder="Search resumes..."
-                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-48"
+                      className="pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm w-full sm:w-48"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -492,9 +589,10 @@ export default function Resume() {
               </div>
 
               {/* Sort Controls */}
-              {(currentFolder || selectedFolder === 'all') && (
-                <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-200">
-                  <span className="text-sm text-gray-600 mr-2">Sort by:</span>
+              {(currentFolder || selectedFolder === 'all') && ( /* Ensure this div is always present for sorting */
+                <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
+                  <div className="flex items-center gap-2"> {/* Group for sort controls */}
+                    <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                   <button
                     onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
@@ -534,6 +632,25 @@ export default function Resume() {
                       (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
                     )}
                   </button>
+                  </div>
+                  {/* Quick Select Button */}
+                  {isSelectionMode ? (
+                    <button
+                      onClick={clearSelection}
+                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      title="Cancel Selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setIsSelectionMode(true)}
+                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                      title="Quick Select"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -775,20 +892,14 @@ export default function Resume() {
                   <p className="text-gray-600 mb-4">
                     Are you sure you want to delete the folder "{itemToDelete.name}"?
                   </p>
-                  {(() => {
-                    const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
-                    if (folderResumes.length > 0) {
-                      return (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                          <p className="text-yellow-800 text-sm">
-                            <strong>Warning:</strong> This folder contains {folderResumes.length} resume{folderResumes.length !== 1 ? 's' : ''}. 
-                            All resumes will be moved to "Uncategorized".
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {itemToDelete.resumesInFolder && itemToDelete.resumesInFolder > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="text-yellow-800 text-sm">
+                        <strong>Warning:</strong> This folder contains {itemToDelete.resumesInFolder} resume{itemToDelete.resumesInFolder !== 1 ? 's' : ''}. 
+                        All resumes will be moved to "Uncategorized".
+                      </p>
+                    </div>
+                  )}
                 </div>
               ) : itemToDelete.id === 'bulk' ? (
                 <div>
@@ -851,6 +962,8 @@ export default function Resume() {
                   } else {
                     handleConfirmDelete();
                   }
+                  setShowDeleteConfirmation(false);
+                  setItemToDelete(null);
                 }}
                 className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
