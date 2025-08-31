@@ -48,7 +48,7 @@ export default function Resume() {
     },
   ]);
   
-  const [selectedFolder, setSelectedFolder] = useState('uncategorized');
+  const [selectedFolder, setSelectedFolder] = useState('all');
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -269,24 +269,6 @@ export default function Resume() {
       resumesInFolder: folderResumes.length
     });
     setShowDeleteConfirmation(true);
-  };
-
-  const setDefaultResume = (resumeId: string) => {
-    setResumes(prev => prev.map(resume => ({
-      ...resume,
-      isDefault: resume.id === resumeId
-    })));
-    
-    // Update user's default resume
-    const defaultResume = resumes.find(r => r.id === resumeId);
-    if (defaultResume) {
-      updateUser({ 
-        resumeUrl: defaultResume.url,
-        resumeFileName: defaultResume.fileName 
-      });
-    }
-  };
-
   const deleteResume = (resumeId: string) => {
     const resume = resumes.find(r => r.id === resumeId);
     if (!resume) return;
@@ -297,15 +279,6 @@ export default function Resume() {
       name: resume.name
     });
     setShowDeleteConfirmation(true);
-  };
-
-  const viewResume = (resume: ResumeFile) => {
-    setViewingResume(resume);
-  };
-
-  const downloadResume = (resume: ResumeFile) => {
-    // Create a mock download link
-    const link = document.createElement('a');
     link.href = '#'; // In real app, this would be the actual file URL
     link.download = resume.fileName;
     
@@ -547,6 +520,69 @@ export default function Resume() {
           </div>
         </div>
 
+        {/* Bulk Actions Bar */}
+        {isSelectionMode && (
+          <div className="bg-blue-50 border-t border-blue-200 p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <span className="text-sm font-medium text-blue-900">
+                  {selectedResumes.length} of {filteredResumes.length} selected
+                </span>
+                <button
+                  onClick={selectAllResumes}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Clear All
+                </button>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={bulkDownloadResumes}
+                  disabled={selectedResumes.length === 0}
+                  className={`p-2 rounded-lg transition-colors ${
+                    selectedResumes.length > 0
+                      ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title="Download Selected"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => setShowBulkMoveModal(true)}
+                  disabled={selectedResumes.length === 0}
+                  className={`p-2 rounded-lg transition-colors ${
+                    selectedResumes.length > 0
+                      ? 'bg-purple-100 text-purple-600 hover:bg-purple-200'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title="Move Selected"
+                >
+                  <FolderPlus className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={bulkDeleteResumes}
+                  disabled={selectedResumes.length === 0}
+                  className={`p-2 rounded-lg transition-colors ${
+                    selectedResumes.length > 0
+                      ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                  }`}
+                  title="Delete Selected"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Main Content */}
         <div className="lg:col-span-3">
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100">
@@ -634,23 +670,16 @@ export default function Resume() {
                   </button>
                   </div>
                   {/* Quick Select Button */}
-                  {isSelectionMode ? (
-                    <button
-                      onClick={clearSelection}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      title="Cancel Selection"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => setIsSelectionMode(true)}
-                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      title="Quick Select"
-                    >
-                      <CheckSquare className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    onClick={() => isSelectionMode ? clearSelection() : setIsSelectionMode(true)}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      isSelectionMode
+                        ? 'bg-red-100 text-red-600 hover:bg-red-200'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {isSelectionMode ? 'Cancel Select' : 'Quick Select'}
+                  </button>
                 </div>
               )}
             </div>
@@ -723,6 +752,18 @@ export default function Resume() {
                             onClick={() => deleteResume(resume.id)}
                             className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
                             title="Delete resume"
+                  {/* Selection Checkbox */}
+                  {isSelectionMode && (
+                    <div className="flex items-center mb-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedResumes.includes(resume.id)}
+                        onChange={() => toggleResumeSelection(resume.id)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                      />
+                      <span className="text-sm text-gray-600">Select this resume</span>
+                    </div>
+                  )}
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
