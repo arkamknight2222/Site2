@@ -60,9 +60,6 @@ export default function Resume() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
 
-  // Set default folder to 'all' instead of 'uncategorized'
-  const [selectedFolder, setSelectedFolder] = useState('all');
-  
   const setDefaultResume = (resumeId: string) => {
     setResumes(prev => prev.map(resume => ({
       ...resume,
