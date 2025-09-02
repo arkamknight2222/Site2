@@ -1,52 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-interface ResumeFile {
-  id: string;
-  name: string;
-  fileName: string;
-  size: number;
-  uploadDate: string;
-  isDefault: boolean;
-  folderId: string;
-  url: string;
-  fileContent?: string; // Base64 content for viewing
-}
-
-interface ResumeFolder {
-  id: string;
-  name: string;
-  sortBy: 'name' | 'date' | 'size';
-  sortOrder: 'asc' | 'desc';
-}
+import { resumeService, ResumeFile, ResumeFolder } from '../services/resumeService';
 
 export default function Resume() {
   const { user, updateUser } = useAuth();
-  const [folders, setFolders] = useState<ResumeFolder[]>([
-  ]);
-  const [resumes, setResumes] = useState<ResumeFile[]>([
-    {
-      id: '1',
-      name: 'Software Developer Resume',
-      fileName: 'john_doe_developer.pdf',
-      size: 245760, // 240KB
-      uploadDate: '2025-01-08T10:30:00Z',
-      isDefault: true,
-      folderId: 'uncategorized',
-      url: 'uploads/resumes/john_doe_developer.pdf',
-    },
-    {
-      id: '2',
-      name: 'Marketing Specialist Resume',
-      fileName: 'john_doe_marketing.pdf',
-      size: 198432, // 194KB
-      uploadDate: '2025-01-05T14:20:00Z',
-      isDefault: false,
-      folderId: 'uncategorized',
-      url: 'uploads/resumes/john_doe_marketing.pdf',
-    },
-  ]);
+  const [folders, setFolders] = useState<ResumeFolder[]>([]);
+  const [resumes, setResumes] = useState<ResumeFile[]>([]);
   
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
@@ -61,12 +21,39 @@ export default function Resume() {
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
-  const setDefaultResume = (resumeId: string) => {
-    setResumes(prev => prev.map(resume => ({
-      ...resume,
-      isDefault: resume.id === resumeId
-    })));
-    alert('Default resume updated successfully!');
+  // Load data from Supabase
+  useEffect(() => {
+    if (user) {
+      loadResumes();
+      loadFolders();
+    }
+  }, [user]);
+
+  const loadResumes = async () => {
+    if (!user) return;
+    const resumesData = await resumeService.getResumes(user.id);
+    setResumes(resumesData);
+  };
+
+  const loadFolders = async () => {
+    if (!user) return;
+    const foldersData = await resumeService.getFolders(user.id);
+    setFolders(foldersData);
+  };
+
+  const setDefaultResume = async (resumeId: string) => {
+    if (!user) return;
+    
+    const success = await resumeService.setDefaultResume(resumeId, user.id);
+    if (success) {
+      setResumes(prev => prev.map(resume => ({
+        ...resume,
+        isDefault: resume.id === resumeId
+      })));
+      alert('Default resume updated successfully!');
+    } else {
+      alert('Failed to update default resume. Please try again.');
+    }
   };
 
   const viewResume = (resume: ResumeFile) => {
@@ -92,46 +79,171 @@ export default function Resume() {
     alert(`Downloading ${resume.fileName}...`);
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
     
     if (itemToDelete.type === 'folder') {
-      const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
-      
-      if (folderResumes.length > 0) {
-        // Move all resumes to uncategorized
+      const success = await resumeService.deleteFolder(itemToDelete.id);
+      if (success) {
+        setFolders(prev => prev.filter(f => f.id !== itemToDelete.id));
+        
+        // Move resumes to uncategorized in local state
         setResumes(prev => prev.map(resume => 
           resume.folderId === itemToDelete.id 
             ? { ...resume, folderId: 'uncategorized' }
             : resume
         ));
-      }
-      
-      setFolders(prev => prev.filter(f => f.id !== itemToDelete.id));
-      
-      // If we're currently viewing the deleted folder, switch to all
-      if (selectedFolder === itemToDelete.id) {
-        setSelectedFolder('all');
-      }
-      
-      alert(`Folder "${itemToDelete.name}" deleted successfully!`);
-    } else if (itemToDelete.type === 'resume') {
-      setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
-      
-      // If deleted resume was default, set another as default
-      const deletedResume = resumes.find(r => r.id === itemToDelete.id);
-      if (deletedResume?.isDefault) {
-        const remainingResumes = resumes.filter(r => r.id !== itemToDelete.id);
-        if (remainingResumes.length > 0) {
-          setDefaultResume(remainingResumes[0].id);
+        
+        // If we're currently viewing the deleted folder, switch to all
+        if (selectedFolder === itemToDelete.id) {
+          setSelectedFolder('all');
         }
+        
+        alert(`Folder "${itemToDelete.name}" deleted successfully!`);
+      } else {
+        alert('Failed to delete folder. Please try again.');
       }
-      
-      alert(`Resume "${itemToDelete.name}" deleted successfully!`);
+    } else if (itemToDelete.type === 'resume') {
+      const success = await resumeService.deleteResume(itemToDelete.id);
+      if (success) {
+        setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
+        alert(`Resume "${itemToDelete.name}" deleted successfully!`);
+      } else {
+        alert('Failed to delete resume. Please try again.');
+      }
     }
     
     setShowDeleteConfirmation(false);
     setItemToDelete(null);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Validate file type
+    const allowedTypes = [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      alert('Please select a PDF, DOC, or DOCX file');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Resume must be smaller than 10MB');
+      return;
+    }
+
+    const resumeName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
+    const targetFolderId = selectedFolder === 'all' ? 'uncategorized' : selectedFolder;
+
+    const newResume = await resumeService.uploadResume(user.id, file, resumeName, targetFolderId);
+    
+    if (newResume) {
+      setResumes(prev => [newResume, ...prev]);
+      alert('Resume uploaded successfully!');
+    } else {
+      alert('Failed to upload resume. Please try again.');
+    }
+  };
+
+  const createFolder = async () => {
+    if (!newFolderName.trim() || !user) return;
+    
+    const newFolder = await resumeService.createFolder(user.id, newFolderName.trim());
+    
+    if (newFolder) {
+      setFolders(prev => [...prev, newFolder]);
+      setNewFolderName('');
+      setShowNewFolderForm(false);
+      alert('Folder created successfully!');
+    } else {
+      alert('Failed to create folder. Please try again.');
+    }
+  };
+
+  const moveResumeToFolder = async (resumeId: string, targetFolderId: string) => {
+    const success = await resumeService.moveResume(resumeId, targetFolderId);
+    
+    if (success) {
+      setResumes(prev => prev.map(resume => 
+        resume.id === resumeId 
+          ? { ...resume, folderId: targetFolderId }
+          : resume
+      ));
+      setShowMoveModal(false);
+      setResumeToMove(null);
+      
+      const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+      alert(`Resume moved to "${targetFolderName}" successfully!`);
+    } else {
+      alert('Failed to move resume. Please try again.');
+    }
+  };
+
+  const bulkMoveResumes = async (targetFolderId: string) => {
+    if (!user) return;
+    
+    try {
+      // Move all selected resumes
+      const movePromises = selectedResumes.map(resumeId => 
+        resumeService.moveResume(resumeId, targetFolderId)
+      );
+      
+      const results = await Promise.all(movePromises);
+      const allSuccessful = results.every(result => result);
+      
+      if (allSuccessful) {
+        setResumes(prev => prev.map(resume => 
+          selectedResumes.includes(resume.id)
+            ? { ...resume, folderId: targetFolderId }
+            : resume
+        ));
+        
+        const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+        alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+        
+        setShowBulkMoveModal(false);
+        clearSelection();
+      } else {
+        alert('Some resumes failed to move. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error moving resumes:', error);
+      alert('Failed to move resumes. Please try again.');
+    }
+  };
+
+  const deleteResume = async (resumeId: string) => {
+    const resume = resumes.find(r => r.id === resumeId);
+    if (!resume) return;
+    
+    setItemToDelete({
+      type: 'resume',
+      id: resumeId,
+      name: resume.name
+    });
+    setShowDeleteConfirmation(true);
+  };
+
+  const deleteFolder = async (folderId: string) => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const folderResumes = resumes.filter(r => r.folderId === folderId);
+    
+    setItemToDelete({
+      type: 'folder',
+      id: folderId,
+      name: folder.name,
+      resumesInFolder: folderResumes.length
+    });
+    setShowDeleteConfirmation(true);
   };
 
   const clearSelection = () => {
@@ -168,174 +280,67 @@ export default function Resume() {
     setShowDeleteConfirmation(true);
   };
 
-  const bulkMoveResumes = (targetFolderId: string) => {
-    setResumes(prev => prev.map(resume => 
-      selectedResumes.includes(resume.id)
-        ? { ...resume, folderId: targetFolderId }
-        : resume
-    ));
+  const updateSort = async (folderId: string, sortBy: 'name' | 'date' | 'size') => {
+    const folder = folders.find(f => f.id === folderId);
+    if (!folder || !user) return;
     
-    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+    const newOrder = folder.sortBy === sortBy && folder.sortOrder === 'asc' ? 'desc' : 'asc';
     
-    setShowBulkMoveModal(false);
-    clearSelection();
-  };
+    try {
+      const { error } = await supabase
+        .from('resume_folders')
+        .update({
+          sort_by: sortBy,
+          sort_order: newOrder,
+        })
+        .eq('id', folderId)
+        .eq('user_id', user.id);
 
-  const bulkDownloadResumes = () => {
-    if (selectedResumes.length === 0) return;
-    
-    selectedResumes.forEach(resumeId => {
-      const resume = resumes.find(r => r.id === resumeId);
-      if (resume) {
-        // Create a mock download for each resume
-        const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
-        const blob = new Blob([mockContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = resume.fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
+      if (error) {
+        console.error('Error updating folder sort:', error);
+        return;
       }
-    });
+
+      setFolders(prev => prev.map(f => {
+        if (f.id === folderId) {
+          return { ...f, sortBy, sortOrder: newOrder };
+        }
+        return f;
+      }));
+    } catch (error) {
+      console.error('Error updating folder sort:', error);
+    }
     
-    alert(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`);
-    clearSelection();
+    setShowDeleteConfirmation(false);
+    setItemToDelete(null);
   };
 
+  const clearSelection = () => {
+    setSelectedResumes([]);
+    setIsSelectionMode(false);
+  };
+
+  const toggleResumeSelection = (resumeId: string) => {
+    setSelectedResumes(prev => 
+      prev.includes(resumeId)
+        ? prev.filter(id => id !== resumeId)
+        : [...prev, resumeId]
+    );
+  };
+
+  const selectAllResumes = () => {
+    const allResumeIds = filteredResumes.map(r => r.id);
+    setSelectedResumes(allResumeIds);
+  };
+
+  const bulkDeleteResumes = () => {
+    if (selectedResumes.length === 0) return;
+      return resume?.name || 'Unknown';
+    }).join(', ');
   const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
     sortBy: 'date',
     sortOrder: 'desc'
   });
-
-  // Save to localStorage whenever data changes
-  useEffect(() => {
-    localStorage.setItem('rushWorkingResumeFolders', JSON.stringify(folders));
-  }, [folders]);
-
-  useEffect(() => {
-    localStorage.setItem('rushWorkingResumes', JSON.stringify(resumes));
-  }, [resumes]);
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    const savedFolders = localStorage.getItem('rushWorkingResumeFolders');
-    const savedResumes = localStorage.getItem('rushWorkingResumes');
-    
-    if (savedFolders) {
-      setFolders(JSON.parse(savedFolders));
-    }
-    if (savedResumes) {
-      setResumes(JSON.parse(savedResumes));
-    }
-  }, []);
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please select a PDF, DOC, or DOCX file');
-      return;
-    }
-    
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Resume must be smaller than 10MB');
-      return;
-    }
-
-    const newResume: ResumeFile = {
-      id: Date.now().toString(),
-      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-      fileName: file.name,
-      size: file.size,
-      uploadDate: new Date().toISOString(),
-      isDefault: resumes.length === 0, // First resume becomes default
-      folderId: selectedFolder === 'all' ? 'default' : selectedFolder,
-      url: `uploads/resumes/${Date.now()}_${file.name}`,
-      fileContent: '', // In real app, this would be the actual file content
-    };
-
-    setResumes(prev => [newResume, ...prev]);
-    alert('Resume uploaded successfully!');
-  };
-
-  const createFolder = () => {
-    if (!newFolderName.trim()) return;
-    
-    const newFolder: ResumeFolder = {
-      id: Date.now().toString(),
-      name: newFolderName.trim(),
-      sortBy: 'date',
-      sortOrder: 'desc',
-    };
-    
-    setFolders(prev => [...prev, newFolder]);
-    setNewFolderName('');
-    setShowNewFolderForm(false);
-  };
-
-  const deleteFolder = (folderId: string) => {
-    const folder = folders.find(f => f.id === folderId);
-    if (!folder) return;
-    
-    const folderResumes = resumes.filter(r => r.folderId === folderId);
-    
-    setItemToDelete({
-      type: 'folder',
-      id: folderId,
-      name: folder.name,
-      resumesInFolder: folderResumes.length
-    });
-    setShowDeleteConfirmation(true);
-  };
-
-  const deleteResume = (resumeId: string) => {
-    const resume = resumes.find(r => r.id === resumeId);
-    if (!resume) return;
-    
-    setItemToDelete({
-      type: 'resume',
-      id: resumeId,
-      name: resume.name
-    });
-    setShowDeleteConfirmation(true);
-  };
-
-  const updateSort = (folderId: string, sortBy: 'name' | 'date' | 'size') => {
-    setFolders(prev => prev.map(folder => {
-      if (folder.id === folderId) {
-        const newOrder = folder.sortBy === sortBy && folder.sortOrder === 'asc' ? 'desc' : 'asc';
-        return { ...folder, sortBy, sortOrder: newOrder };
-      }
-      return folder;
-    }));
-  };
-
-  const moveResumeToFolder = (resumeId: string, targetFolderId: string) => {
-    setResumes(prev => prev.map(resume => 
-      resume.id === resumeId 
-        ? { ...resume, folderId: targetFolderId }
-        : resume
-    ));
-    setShowMoveModal(false);
-    setResumeToMove(null);
-    
-    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-    alert(`Resume moved to "${targetFolderName}" successfully!`);
-  };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
     const currentSortOrder = allResumesSorting.sortBy === sortBy && allResumesSorting.sortOrder === 'asc' ? 'desc' : 'asc';
@@ -926,23 +931,20 @@ export default function Resume() {
                   setItemToDelete(null);
                 }}
                 className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  if (itemToDelete.id === 'bulk') {
-                    // Handle bulk delete
-                    const hasDefault = selectedResumes.some(id => {
-                      const resume = resumes.find(r => r.id === id);
-                      return resume?.isDefault;
-                    });
-                    
+                        const deletePromises = selectedResumes.map(resumeId => 
+                          resumeService.deleteResume(resumeId)
+                        );
+                        
+                        Promise.all(deletePromises).then(results => {
+                          const allSuccessful = results.every(result => result);
+                          if (allSuccessful) {
+                            setResumes(prev => prev.filter(r => !selectedResumes.includes(r.id)));
+                            alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`);
+                            clearSelection();
+                          } else {
+                            alert('Some resumes failed to delete. Please try again.');
                     setResumes(prev => prev.filter(r => !selectedResumes.includes(r.id)));
-                    
-                    // If deleted resume was default, set another as default
-                    if (hasDefault) {
-                      const remainingResumes = resumes.filter(r => !selectedResumes.includes(r.id));
+                        });
                       if (remainingResumes.length > 0) {
                         setDefaultResume(remainingResumes[0].id);
                       }
