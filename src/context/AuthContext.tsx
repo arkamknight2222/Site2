@@ -171,6 +171,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             is_citizen: userData.isCitizen || false,
             highest_degree: userData.highestDegree,
             has_criminal_record: userData.hasCriminalRecord || false,
+            skills: [],
+            points: 0,
+            is_employer: false,
+            is_verified: false,
           });
 
         if (profileError) {
