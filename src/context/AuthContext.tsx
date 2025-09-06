@@ -156,31 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Insert new profile with additional information
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: userData.email,
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran || false,
-            is_citizen: userData.isCitizen || false,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord || false,
-            skills: [],
-            points: 0,
-            is_employer: false,
-            is_verified: false,
-          });
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
