@@ -175,8 +175,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             points: 50,
             is_employer: false,
             is_verified: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
           });
 
         if (profileError) {
