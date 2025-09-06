@@ -156,10 +156,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Update profile with additional information
+        // Insert new profile with additional information
         const { error: profileError } = await supabase
           .from('profiles')
-          .update({
+          .insert({
+            id: data.user.id,
+            email: userData.email,
             phone: userData.phone,
             first_name: userData.firstName,
             last_name: userData.lastName,
@@ -169,8 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             is_citizen: userData.isCitizen || false,
             highest_degree: userData.highestDegree,
             has_criminal_record: userData.hasCriminalRecord || false,
-          })
-          .eq('id', data.user.id);
+          });
 
         if (profileError) {
           console.error('Profile update error:', profileError);
