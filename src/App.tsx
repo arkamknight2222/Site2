@@ -22,15 +22,10 @@ import Resume from './pages/Resume';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { JobProvider } from './context/JobContext';
 
-console.log('[App] App.tsx loaded');
-
 function AppContent() {
-  console.log('[App] AppContent rendering');
   const { user, loading } = useAuth();
-  console.log('[App] Auth state:', { user: !!user, loading });
 
   if (loading) {
-    console.log('[App] Showing loading screen');
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -38,7 +33,6 @@ function AppContent() {
     );
   }
 
-  console.log('[App] Rendering main app content');
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       <Header />
@@ -69,7 +63,6 @@ function AppContent() {
 }
 
 function App() {
-  console.log('[App] Main App component rendering');
   return (
     <Router>
       <AuthProvider>

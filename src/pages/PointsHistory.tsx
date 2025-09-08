@@ -2,26 +2,79 @@ import React, { useState } from 'react';
 import { ArrowLeft, Zap, TrendingUp, TrendingDown, Calendar, Filter, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { pointsService, PointsTransaction } from '../services/pointsService';
 
 export default function PointsHistory() {
   const { user } = useAuth();
   const [filterType, setFilterType] = useState<'all' | 'earned' | 'spent'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [pointsHistory, setPointsHistory] = useState<PointsTransaction[]>([]);
 
-  // Load points history from database
-  React.useEffect(() => {
-    if (user) {
-      loadPointsHistory();
-    }
-  }, [user]);
-
-  const loadPointsHistory = async () => {
-    if (!user) return;
-    const historyData = await pointsService.getPointsHistory(user.id);
-    setPointsHistory(historyData);
-  };
+  // Mock points history data
+  const pointsHistory = [
+    {
+      id: '1',
+      type: 'earned',
+      amount: 10,
+      description: 'Applied to Senior Frontend Developer at TechCorp Inc.',
+      date: '2025-01-08T14:30:00Z',
+      category: 'application',
+    },
+    {
+      id: '2',
+      type: 'spent',
+      amount: -25,
+      description: 'Added points boost to Marketing Specialist application',
+      date: '2025-01-08T10:15:00Z',
+      category: 'boost',
+    },
+    {
+      id: '3',
+      type: 'earned',
+      amount: 50,
+      description: 'Profile completion bonus',
+      date: '2025-01-07T16:45:00Z',
+      category: 'bonus',
+    },
+    {
+      id: '4',
+      type: 'earned',
+      amount: 10,
+      description: 'Registered for Tech Career Fair 2025',
+      date: '2025-01-07T09:20:00Z',
+      category: 'event',
+    },
+    {
+      id: '5',
+      type: 'spent',
+      amount: -50,
+      description: 'Added points boost to Data Analyst application',
+      date: '2025-01-06T13:10:00Z',
+      category: 'boost',
+    },
+    {
+      id: '6',
+      type: 'earned',
+      amount: 100,
+      description: 'Purchased points package',
+      date: '2025-01-06T11:30:00Z',
+      category: 'purchase',
+    },
+    {
+      id: '7',
+      type: 'earned',
+      amount: 10,
+      description: 'Applied to UX Designer at Creative Studios',
+      date: '2025-01-05T15:45:00Z',
+      category: 'application',
+    },
+    {
+      id: '8',
+      type: 'earned',
+      amount: 50,
+      description: 'Welcome bonus for new members',
+      date: '2025-01-05T08:00:00Z',
+      category: 'bonus',
+    },
+  ];
 
   const filteredHistory = pointsHistory.filter(item => {
     const matchesFilter = filterType === 'all' || item.type === filterType;
@@ -191,7 +244,7 @@ export default function PointsHistory() {
                       <p className="font-medium text-gray-900">{item.description}</p>
                       <div className="flex items-center text-sm text-gray-500 mt-1">
                         <Calendar className="h-4 w-4 mr-1" />
-                        {formatDate(item.createdAt)}
+                        {formatDate(item.date)}
                       </div>
                     </div>
                   </div>
