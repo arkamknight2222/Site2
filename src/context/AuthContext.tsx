@@ -69,12 +69,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         
-      if (session?.user) {
+        if (session?.user) {
           console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
-        await loadUserProfile(session.user.id);
+          await loadUserProfile(session.user.id);
         } else {
           console.log('[AuthContext] No session found');
-      }
+        }
       } catch (error) {
         console.error('[AuthContext] Exception in getSession:', error);
       } finally {
