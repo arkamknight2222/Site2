@@ -55,22 +55,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[AuthContext] useEffect started - initializing auth');
     // Check for existing Supabase session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          return;
+        }
+        
       if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
         await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
       }
-      setLoading(false);
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+      } finally {
+        console.log('[AuthContext] Setting loading to false');
+        setLoading(false);
+      }
     };
 
     getSession();
 
     // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
       if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
         await loadUserProfile(session.user.id);
       } else {
+        console.log('[AuthContext] Auth change - clearing user');
         setUser(null);
       }
     });
@@ -79,19 +102,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
     try {
+      console.log('[AuthContext] Fetching profile from database');
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
       if (error) {
         console.error('Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
         return;
       }
 
       if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
         const userData: User = {
           id: profile.id,
           email: profile.email,
@@ -112,10 +141,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           companyId: profile.company_id,
           companyLocation: profile.company_location,
         };
+        console.log('[AuthContext] Setting user data:', userData);
         setUser(userData);
+      } else {
+        console.log('[AuthContext] No profile data found');
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
     }
   };
 
