@@ -1,201 +1,303 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
 
-export interface Job {
+interface Job {
   id: string;
   title: string;
   company: string;
   location: string;
-  type: 'full-time' | 'part-time' | 'contract' | 'remote';
-  salary: {
-    min: number;
-    max: number;
-  };
+  type: string;
+  salary: { min: number; max: number };
   description: string;
   requirements: string[];
-  experienceLevel: 'entry' | 'mid' | 'senior';
-  educationLevel: 'high-school' | 'bachelor' | 'master' | 'phd';
+  experienceLevel: string;
+  educationLevel: string;
   minimumPoints: number;
   postedDate: string;
+  featured: boolean;
   isEvent?: boolean;
   eventDate?: string;
-  featured?: boolean;
   requiresApplication?: boolean;
 }
 
 interface JobContextType {
   jobs: Job[];
   events: Job[];
-  addJob: (job: Omit<Job, 'id' | 'postedDate'>) => void;
+  loading: boolean;
   getJob: (id: string) => Job | undefined;
-  applyToJob: (jobId: string, userId: string) => boolean;
-  updateJob: (id: string, updates: Partial<Job>) => boolean;
-  deleteJob: (id: string) => boolean;
+  addJob: (job: Omit<Job, 'id' | 'postedDate'>) => Promise<boolean>;
+  updateJob: (id: string, updates: Partial<Job>) => Promise<boolean>;
+  deleteJob: (id: string) => Promise<boolean>;
+  applyToJob: (jobId: string, resumeId?: string) => Promise<boolean>;
 }
 
 const JobContext = createContext<JobContextType | undefined>(undefined);
 
-// Mock data
-const mockJobs: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Developer',
-    company: 'TechCorp Inc.',
-    location: 'San Francisco, CA',
-    type: 'full-time',
-    salary: { min: 120000, max: 180000 },
-    description: 'We are looking for an experienced frontend developer to join our team and work on cutting-edge web applications.',
-    requirements: ['React', 'TypeScript', '5+ years experience', 'Team leadership'],
-    experienceLevel: 'senior',
-    educationLevel: 'bachelor',
-    minimumPoints: 100,
-    postedDate: '2025-01-08',
-    featured: true,
-  },
-  {
-    id: '2',
-    title: 'Marketing Specialist',
-    company: 'Growth Labs',
-    location: 'New York, NY',
-    type: 'full-time',
-    salary: { min: 60000, max: 80000 },
-    description: 'Join our marketing team to drive growth and engagement across digital channels.',
-    requirements: ['Digital Marketing', 'Analytics', '2+ years experience'],
-    experienceLevel: 'mid',
-    educationLevel: 'bachelor',
-    minimumPoints: 85,
-    postedDate: '2025-01-07',
-  },
-  {
-    id: '3',
-    title: 'Remote Data Analyst',
-    company: 'Data Solutions LLC',
-    location: 'Remote',
-    type: 'remote',
-    salary: { min: 70000, max: 95000 },
-    description: 'Analyze large datasets and provide insights to drive business decisions.',
-    requirements: ['Python', 'SQL', 'Statistics', '3+ years experience'],
-    experienceLevel: 'mid',
-    educationLevel: 'bachelor',
-    minimumPoints: 92,
-    postedDate: '2025-01-06',
-  },
-];
+const getMockJobs = (): Job[] => {
+  return [
+    {
+      id: 'mock-1',
+      title: 'Senior React Developer',
+      company: 'TechCorp Inc.',
+      location: 'San Francisco, CA',
+      type: 'full-time',
+      salary: { min: 120000, max: 180000 },
+      description: 'We are looking for an experienced React developer to join our growing team. You will be responsible for building scalable web applications using modern React patterns and best practices.',
+      requirements: [
+        '5+ years of React experience',
+        'Strong TypeScript skills',
+        'Experience with state management (Redux/Zustand)',
+        'Knowledge of testing frameworks (Jest, React Testing Library)',
+        'Familiarity with modern build tools (Vite, Webpack)'
+      ],
+      experienceLevel: 'senior',
+      educationLevel: 'bachelor',
+      minimumPoints: 100,
+      postedDate: '2025-01-08',
+      featured: true,
+    },
+    {
+      id: 'mock-2',
+      title: 'Frontend Developer',
+      company: 'StartupX',
+      location: 'Remote',
+      type: 'full-time',
+      salary: { min: 80000, max: 120000 },
+      description: 'Join our innovative startup as a Frontend Developer. Work with cutting-edge technologies and help shape the future of our product.',
+      requirements: [
+        '3+ years of JavaScript experience',
+        'React or Vue.js experience',
+        'CSS/SCSS proficiency',
+        'Responsive design skills',
+        'Git version control'
+      ],
+      experienceLevel: 'mid',
+      educationLevel: 'bachelor',
+      minimumPoints: 50,
+      postedDate: '2025-01-07',
+      featured: false,
+    },
+    {
+      id: 'mock-3',
+      title: 'Junior Web Developer',
+      company: 'Digital Agency',
+      location: 'New York, NY',
+      type: 'full-time',
+      salary: { min: 60000, max: 80000 },
+      description: 'Perfect opportunity for a junior developer to grow their skills in a supportive environment. You will work on various client projects and learn from experienced developers.',
+      requirements: [
+        '1+ years of web development experience',
+        'HTML, CSS, JavaScript knowledge',
+        'Basic React or Angular experience',
+        'Willingness to learn',
+        'Strong communication skills'
+      ],
+      experienceLevel: 'entry',
+      educationLevel: 'bachelor',
+      minimumPoints: 25,
+      postedDate: '2025-01-06',
+      featured: false,
+    },
+  ];
+};
 
-const mockEvents: Job[] = [
-  {
-    id: 'e1',
-    title: 'Tech Career Fair 2025',
-    company: 'City Career Center',
-    location: 'Los Angeles, CA',
-    type: 'full-time',
-    salary: { min: 0, max: 0 },
-    description: 'Meet with top tech companies and explore career opportunities in the tech industry.',
-    requirements: ['Bring resume', 'Professional attire'],
-    experienceLevel: 'entry',
-    educationLevel: 'high-school',
-    minimumPoints: 0,
-    postedDate: '2025-01-08',
-    isEvent: true,
-    eventDate: '2025-01-25',
-    requiresApplication: true,
-  },
-  {
-    id: 'e2',
-    title: 'Networking Mixer for Professionals',
-    company: 'Business Network Group',
-    location: 'Chicago, IL',
-    type: 'part-time',
-    salary: { min: 0, max: 0 },
-    description: 'Connect with industry professionals and expand your network.',
-    requirements: ['Business casual', 'LinkedIn profile'],
-    experienceLevel: 'mid',
-    educationLevel: 'bachelor',
-    minimumPoints: 0,
-    postedDate: '2025-01-07',
-    isEvent: true,
-    eventDate: '2025-01-20',
-    requiresApplication: false,
-  },
-];
+const getMockEvents = (): Job[] => {
+  return [
+    {
+      id: 'mock-event-1',
+      title: 'Tech Career Fair 2025',
+      company: 'City Career Center',
+      location: 'Los Angeles Convention Center',
+      type: 'full-time',
+      salary: { min: 0, max: 0 },
+      description: 'Join us for the biggest tech career fair of the year! Meet with top employers, attend workshops, and network with industry professionals.',
+      requirements: [
+        'Bring multiple copies of your resume',
+        'Business professional attire',
+        'Portfolio or work samples (optional)',
+        'Networking mindset'
+      ],
+      experienceLevel: 'entry',
+      educationLevel: 'high-school',
+      minimumPoints: 0,
+      postedDate: '2025-01-05',
+      isEvent: true,
+      eventDate: '2025-01-25',
+      requiresApplication: false,
+      featured: true,
+    },
+    {
+      id: 'mock-event-2',
+      title: 'Senior Developer Networking Mixer',
+      company: 'Tech Professionals Network',
+      location: 'San Francisco, CA',
+      type: 'part-time',
+      salary: { min: 0, max: 0 },
+      description: 'Exclusive networking event for senior developers. Connect with CTOs, lead engineers, and other senior professionals in an intimate setting.',
+      requirements: [
+        'Minimum 5 years experience',
+        'Current or recent senior role',
+        'Business cards',
+        'Professional attire'
+      ],
+      experienceLevel: 'senior',
+      educationLevel: 'bachelor',
+      minimumPoints: 75,
+      postedDate: '2025-01-04',
+      isEvent: true,
+      eventDate: '2025-01-20',
+      requiresApplication: true,
+      featured: false,
+    },
+  ];
+};
 
 export function JobProvider({ children }: { children: ReactNode }) {
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
-  const [events, setEvents] = useState<Job[]>(mockEvents);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [events, setEvents] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addJob = (jobData: Omit<Job, 'id' | 'postedDate'>) => {
-    const newJob: Job = {
-      ...jobData,
-      id: Date.now().toString(),
-      postedDate: new Date().toISOString().split('T')[0],
-    };
+  useEffect(() => {
+    loadJobs();
+    loadEvents();
+  }, []);
 
-    if (jobData.isEvent) {
-      setEvents(prev => [newJob, ...prev]);
-    } else {
-      setJobs(prev => [newJob, ...prev]);
+  const loadJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('is_event', false)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Error loading jobs:', error);
+        // Use mock data as fallback
+        setJobs(getMockJobs());
+      } else {
+        setJobs(data || []);
+      }
+    } catch (error) {
+      console.log('Error loading jobs:', error);
+      // Use mock data as fallback
+      setJobs(getMockJobs());
+    } finally {
+      setLoading(false);
     }
+  };
 
-    return newJob;
+  const loadEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .eq('is_event', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.log('Error loading events:', error);
+        // Use mock data as fallback
+        setEvents(getMockEvents());
+      } else {
+        setEvents(data || []);
+      }
+    } catch (error) {
+      console.log('Error loading events:', error);
+      // Use mock data as fallback
+      setEvents(getMockEvents());
+    }
   };
 
   const getJob = (id: string): Job | undefined => {
     return [...jobs, ...events].find(job => job.id === id);
   };
 
-  const applyToJob = (jobId: string, userId: string): boolean => {
-    // Simulate application logic
-    console.log(`User ${userId} applied to job ${jobId}`);
-    return true;
+  const addJob = async (jobData: Omit<Job, 'id' | 'postedDate'>): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('jobs')
+        .insert({
+          ...jobData,
+          posted_by: (await supabase.auth.getUser()).data.user?.id,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error adding job:', error);
+        return false;
+      }
+
+      // Refresh jobs list
+      await loadJobs();
+      return true;
+    } catch (error) {
+      console.error('Error adding job:', error);
+      return false;
+    }
   };
 
-  const updateJob = (id: string, updates: Partial<Job>): boolean => {
+  const updateJob = async (id: string, updates: Partial<Job>): Promise<boolean> => {
     try {
-      // Find and update in jobs array
-      const jobIndex = jobs.findIndex(job => job.id === id);
-      if (jobIndex !== -1) {
-        const updatedJob = { ...jobs[jobIndex], ...updates };
-        const newJobs = [...jobs];
-        newJobs[jobIndex] = updatedJob;
-        setJobs(newJobs);
-        return true;
+      const { error } = await supabase
+        .from('jobs')
+        .update(updates)
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error updating job:', error);
+        return false;
       }
 
-      // Find and update in events array
-      const eventIndex = events.findIndex(event => event.id === id);
-      if (eventIndex !== -1) {
-        const updatedEvent = { ...events[eventIndex], ...updates };
-        const newEvents = [...events];
-        newEvents[eventIndex] = updatedEvent;
-        setEvents(newEvents);
-        return true;
-      }
-
-      return false;
+      // Refresh jobs list
+      await loadJobs();
+      return true;
     } catch (error) {
       console.error('Error updating job:', error);
       return false;
     }
   };
 
-  const deleteJob = (id: string): boolean => {
+  const deleteJob = async (id: string): Promise<boolean> => {
     try {
-      // Try to delete from jobs array
-      const jobExists = jobs.some(job => job.id === id);
-      if (jobExists) {
-        setJobs(prevJobs => prevJobs.filter(job => job.id !== id));
-        return true;
+      const { error } = await supabase
+        .from('jobs')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        console.error('Error deleting job:', error);
+        return false;
       }
 
-      // Try to delete from events array
-      const eventExists = events.some(event => event.id === id);
-      if (eventExists) {
-        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
-        return true;
-      }
-
-      return false;
+      // Refresh jobs list
+      await loadJobs();
+      return true;
     } catch (error) {
       console.error('Error deleting job:', error);
+      return false;
+    }
+  };
+
+  const applyToJob = async (jobId: string, resumeId?: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('applications')
+        .insert({
+          job_id: jobId,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          resume_id: resumeId,
+          points_used: 10, // Default points cost
+        });
+
+      if (error) {
+        console.error('Error applying to job:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error applying to job:', error);
       return false;
     }
   };
@@ -205,11 +307,12 @@ export function JobProvider({ children }: { children: ReactNode }) {
       value={{
         jobs,
         events,
-        addJob,
+        loading,
         getJob,
-        applyToJob,
+        addJob,
         updateJob,
         deleteJob,
+        applyToJob,
       }}
     >
       {children}
