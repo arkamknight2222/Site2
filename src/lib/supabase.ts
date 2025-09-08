@@ -3,19 +3,22 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
-console.log('[Supabase] Environment check:', {
+console.log('[Supabase] Client initialization:', {
   hasUrl: !!import.meta.env.VITE_SUPABASE_URL,
   hasKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
   url: supabaseUrl,
-  keyLength: supabaseAnonKey.length
+  keyLength: supabaseAnonKey.length,
+  isPlaceholder: supabaseUrl === 'https://placeholder.supabase.co'
 });
 
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
   console.warn('[Supabase] Missing environment variables - using placeholder values');
   console.warn('[Supabase] Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file');
+  console.warn('[Supabase] The app will show a loading screen until Supabase is properly configured');
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+console.log('[Supabase] Client created successfully');
 
 // Database types
 export interface Database {

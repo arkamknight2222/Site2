@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { supabase } from '../lib/supabase';
 import { resumeService } from '../services/resumeService';
 
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
+
 interface User {
   id: string;
   email: string;
