@@ -1,146 +1,204 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { resumeService } from '../services/resumeService';
 
-export interface Job {
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
+
+interface User {
+  id: string;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
+}
+
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
+
+interface Job {
   id: string;
   title: string;
   company: string;
   location: string;
-  type: 'full-time' | 'part-time' | 'contract' | 'remote';
-  salary: {
-    min: number;
-    max: number;
-  };
+  type: string;
+  salary: { min: number; max: number };
   description: string;
   requirements: string[];
-  experienceLevel: 'entry' | 'mid' | 'senior';
-  educationLevel: 'high-school' | 'bachelor' | 'master' | 'phd';
+  experienceLevel: string;
+  educationLevel: string;
   minimumPoints: number;
   postedDate: string;
-  featured?: boolean;
+  featured: boolean;
   isEvent?: boolean;
   eventDate?: string;
   requiresApplication?: boolean;
 }
 
-interface JobContextType {
-  jobs: Job[];
-  events: Job[];
-  addJob: (jobData: any) => Job;
-  updateJob: (jobId: string, jobData: any) => boolean;
-  deleteJob: (jobId: string) => boolean;
-  getJob: (jobId: string) => Job | undefined;
-  applyToJob: (jobId: string, userId: string) => boolean;
-}
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const JobContext = createContext<JobContextType | undefined>(undefined);
-
-export function JobProvider({ children }: { children: ReactNode }) {
-  const [jobs, setJobs] = useState<Job[]>([]);
-  const [events, setEvents] = useState<Job[]>([]);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadJobs();
-    loadEvents();
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+      } finally {
+        console.log('[AuthContext] Setting loading to false');
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const loadJobs = async () => {
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
     try {
-      console.log('[JobContext] Loading jobs from database');
-      const { data, error } = await supabase
-        .from('jobs')
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
         .select('*')
-        .eq('is_event', false)
-        .order('created_at', { ascending: false });
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
 
       if (error) {
-        console.error('Error loading jobs:', error);
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
         
-        // Check if it's a network error
+        // Check if it's a network error (Failed to fetch)
         if (error.message && error.message.includes('Failed to fetch')) {
-          console.log('[JobContext] Network error detected, using mock jobs');
-          setJobs(getMockJobs());
-          return;
+          console.log('[AuthContext] Network error detected, using offline mode');
         }
         
-        setJobs([]);
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
         return;
       }
 
-      const jobsData = data.map(job => ({
-        id: job.id,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        type: job.type as any,
-        salary: {
-          min: job.salary_min,
-          max: job.salary_max,
-        },
-        description: job.description,
-        requirements: job.requirements || [],
-        experienceLevel: job.experience_level as any,
-        educationLevel: job.education_level as any,
-        minimumPoints: job.minimum_points,
-        postedDate: job.created_at,
-        featured: job.featured,
-      }));
-
-      setJobs(jobsData);
-    } catch (error) {
-      console.error('Error loading jobs:', error);
-      console.log('[JobContext] Exception loading jobs, using mock data');
-      setJobs(getMockJobs());
-    }
-  };
-
-  const loadEvents = async () => {
-    try {
-      console.log('[JobContext] Loading events from database');
-      const { data, error } = await supabase
-        .from('jobs')
-        .select('*')
-        .eq('is_event', true)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading events:', error);
-        
-        // Check if it's a network error
-        if (error.message && error.message.includes('Failed to fetch')) {
-          console.log('[JobContext] Network error detected, using mock events');
-          setEvents(getMockEvents());
-          return;
-        }
-        
-        setEvents([]);
-        return;
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        console.log('[AuthContext] Setting loading to false after successful profile load');
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        console.log('[AuthContext] Setting loading to false - no profile data');
+        setLoading(false);
       }
-
-      const eventsData = data.map(event => ({
-        id: event.id,
-        title: event.title,
-        company: event.company,
-        location: event.location,
-        type: event.type as any,
-        salary: { min: 0, max: 0 },
-        description: event.description,
-        requirements: event.requirements || [],
-        experienceLevel: event.experience_level as any,
-        educationLevel: event.education_level as any,
-        minimumPoints: event.minimum_points,
-        postedDate: event.created_at,
-        featured: event.featured,
-        isEvent: true,
-        eventDate: event.event_date,
-        requiresApplication: event.requires_application,
-      }));
-
-      setEvents(eventsData);
     } catch (error) {
-      console.error('Error loading events:', error);
-      console.log('[JobContext] Exception loading events, using mock data');
-      setEvents(getMockEvents());
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to exception');
+      setLoading(false);
     }
   };
 
@@ -262,86 +320,174 @@ export function JobProvider({ children }: { children: ReactNode }) {
       },
     ];
   };
-
-  const addJob = (jobData: any): Job => {
-    const newJob: Job = {
-      id: `job-${Date.now()}`,
-      title: jobData.title,
-      company: jobData.company,
-      location: jobData.location,
-      type: jobData.type,
-      salary: jobData.salary,
-      description: jobData.description,
-      requirements: jobData.requirements,
-      experienceLevel: jobData.experienceLevel,
-      educationLevel: jobData.educationLevel,
-      minimumPoints: jobData.minimumPoints,
-      postedDate: new Date().toISOString(),
-      featured: jobData.featured,
-      isEvent: jobData.isEvent,
-      eventDate: jobData.eventDate,
-      requiresApplication: jobData.requiresApplication,
-    };
-
-    if (jobData.isEvent) {
-      setEvents(prev => [newJob, ...prev]);
-    } else {
-      setJobs(prev => [newJob, ...prev]);
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
     }
-
-    return newJob;
   };
 
-  const updateJob = (jobId: string, jobData: any): boolean => {
-    const updateArray = (prev: Job[]) =>
-      prev.map(job =>
-        job.id === jobId
-          ? { ...job, ...jobData, id: jobId }
-          : job
-      );
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    setJobs(updateArray);
-    setEvents(updateArray);
-    return true;
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
-  const deleteJob = (jobId: string): boolean => {
-    setJobs(prev => prev.filter(job => job.id !== jobId));
-    setEvents(prev => prev.filter(event => event.id !== jobId));
-    return true;
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
   };
 
-  const getJob = (jobId: string): Job | undefined => {
-    return [...jobs, ...events].find(job => job.id === jobId);
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
-  const applyToJob = (jobId: string, userId: string): boolean => {
-    // In a real app, this would create an application record
-    console.log(`Applied to job ${jobId} for user ${userId}`);
-    return true;
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
   };
 
   return (
-    <JobContext.Provider
+    <AuthContext.Provider
       value={{
-        jobs,
-        events,
-        addJob,
-        updateJob,
-        deleteJob,
-        getJob,
-        applyToJob,
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
       }}
     >
       {children}
-    </JobContext.Provider>
+    </AuthContext.Provider>
   );
 }
 
-export function useJobs() {
-  const context = useContext(JobContext);
+export function useAuth() {
+  const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useJobs must be used within a JobProvider');
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 }

@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
-import { resumeService } from '../services/resumeService';
 
 // Add immediate debugging
 console.log('[AuthContext] Module loaded, supabase client:', supabase);
@@ -74,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         if (error) {
           console.error('[AuthContext] Error getting session:', error);
+          setLoading(false);
           return;
         }
         
@@ -82,11 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           await loadUserProfile(session.user.id);
         } else {
           console.log('[AuthContext] No session found');
+          setLoading(false);
         }
       } catch (error) {
         console.error('[AuthContext] Exception in getSession:', error);
-      } finally {
-        console.log('[AuthContext] Setting loading to false');
         setLoading(false);
       }
     };
@@ -108,6 +107,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const createOfflineProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating offline profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'demo@rushworking.com',
+        phone: '+1 (555) 123-4567',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '28',
+        gender: 'prefer-not-to-say',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: 'bachelor',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: true,
+        isVerified: true, // Allow posting in demo mode
+        companyName: 'Demo Company Inc.',
+        companyId: 'DEMO123456',
+        companyLocation: 'San Francisco, CA',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
+      setLoading(false);
+    }
+  };
 
   const loadUserProfile = async (userId: string) => {
     console.log('[AuthContext] loadUserProfile started for userId:', userId);
@@ -136,47 +180,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check if it's a network error (Failed to fetch)
         if (error.message && error.message.includes('Failed to fetch')) {
           console.log('[AuthContext] Network error detected, using offline mode');
-      
-      // Create a mock profile with default values
-      const offlineProfile: User = {
-        id: userId,
-        email: authUser?.email || 'user@example.com',
-        phone: '',
-        firstName: 'Demo',
-        lastName: 'User',
-        age: '',
-        gender: '',
-        isVeteran: false,
-        isCitizen: true,
-        highestDegree: '',
-        hasCriminalRecord: false,
-        profilePicture: '',
-        points: 150, // Give extra points for demo
-        isEmployer: false,
-        isVerified: true, // Allow posting in demo mode
-        companyName: '',
-        companyId: '',
-        companyLocation: '',
-      };
-      
-      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
-      setUser(offlineProfile);
-      console.log('[AuthContext] Setting loading to false after offline profile creation');
-      setLoading(false);
-      
-      // Show notification about offline mode
-      setTimeout(() => {
-        console.log('[AuthContext] Showing offline mode notification');
-        // You could show a toast notification here
-      }, 1000);
-      
-    } catch (error) {
-      console.error('[AuthContext] Error in createOfflineProfile:', error);
-      console.log('[AuthContext] Setting loading to false due to offline profile error');
-      setLoading(false);
-    }
-  };
-  
+          await createOfflineProfile(userId);
+          return;
+        }
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
+          console.log('[AuthContext] Profile not found, creating new profile');
+          await createMissingProfile(userId);
+          return;
         }
         
         // For other errors, set loading to false
@@ -209,18 +221,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         console.log('[AuthContext] Setting user data:', userData);
         setUser(userData);
-        console.log('[AuthContext] Setting loading to false after successful profile load');
         setLoading(false);
       } else {
         console.log('[AuthContext] No profile data found');
-        console.log('[AuthContext] Setting loading to false - no profile data');
         setLoading(false);
       }
     } catch (error) {
       console.error('[AuthContext] Error loading user profile:', error);
       console.log('[AuthContext] Exception in loadUserProfile:', error);
-      console.log('[AuthContext] Setting loading to false due to exception');
-      setLoading(false);
+      
+      // Check if it's a network error
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('[AuthContext] Network exception detected, using offline mode');
+        await createOfflineProfile(userId);
+      } else {
+        setLoading(false);
+      }
     }
   };
   
