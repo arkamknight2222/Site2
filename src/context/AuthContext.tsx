@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Login error:', error);
-        return false;
+        throw error;
       }
 
       if (data.user) {
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      throw error;
     }
   };
 
@@ -156,7 +156,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Update profile with additional information
+        // Update profile record with additional details
+        // (The basic profile was already created by the handle_new_user trigger)
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -174,9 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (profileError) {
           console.error('Profile update error:', profileError);
+          throw new Error('Database error updating user profile');
         }
 
-        // Add welcome bonus to points history
+        // Add welcome bonus to points history (only if not already added)
         await supabase
           .from('points_history')
           .insert({
