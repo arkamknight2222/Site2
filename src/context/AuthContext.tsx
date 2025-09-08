@@ -156,12 +156,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Create profile record
+        // Update profile record with additional details
+        // (The basic profile was already created by the handle_new_user trigger)
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: userData.email,
+          .update({
             phone: userData.phone,
             first_name: userData.firstName,
             last_name: userData.lastName,
@@ -171,18 +170,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             is_citizen: userData.isCitizen || false,
             highest_degree: userData.highestDegree,
             has_criminal_record: userData.hasCriminalRecord || false,
-            skills: [],
-            points: 50,
-            is_employer: false,
-            is_verified: false,
-          });
+          })
+          .eq('id', data.user.id);
 
         if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw new Error('Database error saving new user');
+          console.error('Profile update error:', profileError);
+          throw new Error('Database error updating user profile');
         }
 
-        // Add welcome bonus to points history
+        // Add welcome bonus to points history (only if not already added)
         await supabase
           .from('points_history')
           .insert({
