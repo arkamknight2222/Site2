@@ -56,20 +56,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Check for existing Supabase session
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
+      try {
+        console.log('AuthContext: Starting session check...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('AuthContext: Error getting session:', error);
+          throw error;
+        }
+        
+        console.log('AuthContext: Session retrieved:', session ? 'User logged in' : 'No session');
+        
+        if (session?.user) {
+          console.log('AuthContext: Loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        }
+      } catch (error) {
+        console.error('AuthContext: Error during session initialization:', error);
+        setUser(null);
+      } finally {
+        console.log('AuthContext: Setting loading to false');
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     getSession();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
-      } else {
+      try {
+        console.log('AuthContext: Auth state changed:', event);
+        if (session?.user) {
+          console.log('AuthContext: Loading profile for auth change:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('AuthContext: No session, clearing user');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('AuthContext: Error handling auth state change:', error);
         setUser(null);
       }
     });
@@ -79,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loadUserProfile = async (userId: string) => {
     try {
+      console.log('AuthContext: Loading profile for user:', userId);
       const { data: profile, error } = await supabase
         .from('profiles')
         .select('*')
@@ -87,10 +113,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Error loading profile:', error);
-        return;
+        throw error;
       }
 
       if (profile) {
+        console.log('AuthContext: Profile loaded successfully');
         const userData: User = {
           id: profile.id,
           email: profile.email,
@@ -112,14 +139,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           companyLocation: profile.company_location,
         };
         setUser(userData);
+      } else {
+        console.warn('AuthContext: No profile found for user:', userId);
+        setUser(null);
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+      setUser(null);
+      throw error; // Re-throw to be caught by calling function
     }
   };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('AuthContext: Attempting login for:', email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -131,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        console.log('AuthContext: Login successful, loading profile');
         await loadUserProfile(data.user.id);
         return true;
       }
@@ -144,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
+      console.log('AuthContext: Attempting registration for:', userData.email);
       // Create auth user
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -156,6 +191,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        console.log('AuthContext: Registration successful, updating profile');
         // Update profile record with additional details
         // (The basic profile was already created by the handle_new_user trigger)
         const { error: profileError } = await supabase
@@ -179,7 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Add welcome bonus to points history (only if not already added)
-        await supabase
+        const { error: pointsError } = await supabase
           .from('points_history')
           .insert({
             user_id: data.user.id,
@@ -189,6 +225,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             category: 'bonus',
           });
 
+        if (pointsError) {
+          console.error('Error adding welcome bonus:', pointsError);
+          // Don't fail registration for this, just log the error
+        }
+
+        console.log('AuthContext: Loading profile after registration');
         await loadUserProfile(data.user.id);
         return true;
       }
@@ -201,6 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = () => {
+    console.log('AuthContext: Logging out user');
     supabase.auth.signOut();
     setUser(null);
   };
@@ -208,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = async (userData: Partial<User>) => {
     if (user) {
       try {
+        console.log('AuthContext: Updating user profile');
         // Update in database
         const { error } = await supabase
           .from('profiles')
@@ -235,14 +279,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (error) {
           console.error('Error updating profile:', error);
-          return;
+          throw error;
         }
 
+        console.log('AuthContext: Profile updated successfully');
         // Update local state
         const updatedUser = { ...user, ...userData };
         setUser(updatedUser);
       } catch (error) {
         console.error('Error updating user:', error);
+        throw error;
       }
     }
   };
