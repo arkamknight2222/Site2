@@ -153,6 +153,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
@@ -164,12 +168,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             category: 'bonus',
           });
 
-        // Update local state
-        const updatedUser = { ...user, ...userData };
-        setUser(updatedUser);
-      } catch (error) {
-        console.error('Error updating user:', error);
+        await loadUserProfile(data.user.id);
+        return true;
       }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
     }
   };
 
