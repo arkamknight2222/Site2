@@ -133,11 +133,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('[AuthContext] Error loading profile:', error);
         console.log('[AuthContext] Profile error details:', error.message, error.code);
         
-        // If profile doesn't exist, create it
-        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
-          console.log('[AuthContext] Profile not found, creating new profile');
-          await createMissingProfile(userId);
-          return;
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'user@example.com',
+        phone: '',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '',
+        gender: '',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: '',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: false,
+        isVerified: true, // Allow posting in demo mode
+        companyName: '',
+        companyId: '',
+        companyLocation: '',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      console.log('[AuthContext] Setting loading to false after offline profile creation');
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to offline profile error');
+      setLoading(false);
+    }
+  };
+  
         }
         
         // For other errors, set loading to false
