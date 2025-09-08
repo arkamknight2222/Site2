@@ -153,10 +153,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Registration error:', error);
-        return false;
-      }
-
-      if (data.user) {
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
@@ -167,55 +163,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             description: 'Welcome bonus for new members',
             category: 'bonus',
           });
-
-        await loadUserProfile(data.user.id);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Registration error:', error);
-      return false;
-    }
-  };
-
-  const logout = () => {
-    supabase.auth.signOut();
-    setUser(null);
-  };
-
-  const updateUser = async (userData: Partial<User>) => {
-    if (user) {
-      try {
-        // Update in database
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran,
-            is_citizen: userData.isCitizen,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord,
-            profile_picture: userData.profilePicture,
-            bio: userData.bio,
-            skills: userData.skills,
-            points: userData.points,
-            is_employer: userData.isEmployer,
-            is_verified: userData.isVerified,
-            company_name: userData.companyName,
-            company_id: userData.companyId,
-            company_location: userData.companyLocation,
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Error updating profile:', error);
-          return;
-        }
 
         // Update local state
         const updatedUser = { ...user, ...userData };
