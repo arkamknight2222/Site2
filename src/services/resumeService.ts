@@ -1,307 +1,430 @@
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { resumeService } from '../services/resumeService';
 
-export interface ResumeFile {
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
+
+interface User {
   id: string;
-  name: string;
-  fileName: string;
-  size: number;
-  uploadDate: string;
-  isDefault: boolean;
-  folderId: string;
-  url: string;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
 }
 
-export interface ResumeFolder {
-  id: string;
-  name: string;
-  sortBy: 'name' | 'date' | 'size';
-  sortOrder: 'asc' | 'desc';
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
-export const resumeService = {
-  async getResumes(userId: string): Promise<ResumeFile[]> {
-    try {
-      const { data, error } = await supabase
-        .from('resumes')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
 
-      if (error) {
-        console.error('Error loading resumes:', error);
-        return [];
-      }
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-      return data.map(resume => ({
-        id: resume.id,
-        name: resume.name,
-        fileName: resume.file_name,
-        size: resume.file_size,
-        uploadDate: resume.created_at,
-        isDefault: resume.is_default,
-        folderId: resume.folder_id,
-        url: resume.file_url,
-      }));
-    } catch (error) {
-      console.error('Error loading resumes:', error);
-      return [];
-    }
-  },
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  async getFolders(userId: string): Promise<ResumeFolder[]> {
-    try {
-      const { data, error } = await supabase
-        .from('resume_folders')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading folders:', error);
-        return [];
-      }
-
-      return data.map(folder => ({
-        id: folder.id,
-        name: folder.name,
-        sortBy: folder.sort_by as any,
-        sortOrder: folder.sort_order as any,
-      }));
-    } catch (error) {
-      console.error('Error loading folders:', error);
-      return [];
-    }
-  },
-
-  async createFolder(userId: string, name: string): Promise<ResumeFolder | null> {
-    try {
-      const { data, error } = await supabase
-        .from('resume_folders')
-        .insert({
-          user_id: userId,
-          name,
-          sort_by: 'date',
-          sort_order: 'desc',
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating folder:', error);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        name: data.name,
-        sortBy: data.sort_by as any,
-        sortOrder: data.sort_order as any,
-      };
-    } catch (error) {
-      console.error('Error creating folder:', error);
-      return null;
-    }
-  },
-
-  async deleteFolder(folderId: string): Promise<boolean> {
-    try {
-      // First, move all resumes in this folder to uncategorized
-      const { error: moveError } = await supabase
-        .from('resumes')
-        .update({ folder_id: 'uncategorized' })
-        .eq('folder_id', folderId);
-
-      if (moveError) {
-        console.error('Error moving resumes:', moveError);
-        return false;
-      }
-
-      // Then delete the folder
-      const { error } = await supabase
-        .from('resume_folders')
-        .delete()
-        .eq('id', folderId);
-
-      if (error) {
-        console.error('Error deleting folder:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error deleting folder:', error);
-      return false;
-    }
-  },
-
-  async uploadResume(userId: string, file: File, name: string, folderId: string = 'uncategorized'): Promise<ResumeFile | null> {
-    try {
-      // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${file.name}`;
-      const filePath = `resumes/${userId}/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, file);
-
-      if (uploadError) {
-        console.error('Error uploading file:', uploadError);
-        return null;
-      }
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
-
-      // Check if this is the first resume (should be default)
-      const { data: existingResumes } = await supabase
-        .from('resumes')
-        .select('id')
-        .eq('user_id', userId);
-
-      const isFirstResume = !existingResumes || existingResumes.length === 0;
-
-      // Create resume record
-      const { data, error } = await supabase
-        .from('resumes')
-        .insert({
-          user_id: userId,
-          name,
-          file_name: file.name,
-          file_size: file.size,
-          file_url: publicUrl,
-          folder_id: folderId,
-          is_default: isFirstResume,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error creating resume record:', error);
-        return null;
-      }
-
-      return {
-        id: data.id,
-        name: data.name,
-        fileName: data.file_name,
-        size: data.file_size,
-        uploadDate: data.created_at,
-        isDefault: data.is_default,
-        folderId: data.folder_id,
-        url: data.file_url,
-      };
-    } catch (error) {
-      console.error('Error uploading resume:', error);
-      return null;
-    }
-  },
-
-  async setDefaultResume(resumeId: string, userId: string): Promise<boolean> {
-    try {
-      // First, unset all other resumes as default
-      const { error: unsetError } = await supabase
-        .from('resumes')
-        .update({ is_default: false })
-        .eq('user_id', userId);
-
-      if (unsetError) {
-        console.error('Error unsetting default resumes:', unsetError);
-        return false;
-      }
-
-      // Then set the selected resume as default
-      const { error } = await supabase
-        .from('resumes')
-        .update({ is_default: true })
-        .eq('id', resumeId)
-        .eq('user_id', userId);
-
-      if (error) {
-        console.error('Error setting default resume:', error);
-        return false;
-      }
-
-      return true;
-    } catch (error) {
-      console.error('Error setting default resume:', error);
-      return false;
-    }
-  },
-
-  async deleteResume(resumeId: string): Promise<boolean> {
-    try {
-      // Get resume info first
-      const { data: resume, error: fetchError } = await supabase
-        .from('resumes')
-        .select('file_url, user_id, is_default')
-        .eq('id', resumeId)
-        .single();
-
-      if (fetchError) {
-        console.error('Error fetching resume:', fetchError);
-        return false;
-      }
-
-      // Delete from storage
-      const filePath = resume.file_url.split('/').slice(-2).join('/');
-      const { error: storageError } = await supabase.storage
-        .from('resumes')
-        .remove([filePath]);
-
-      if (storageError) {
-        console.error('Error deleting file from storage:', storageError);
-      }
-
-      // Delete from database
-      const { error } = await supabase
-        .from('resumes')
-        .delete()
-        .eq('id', resumeId);
-
-      if (error) {
-        console.error('Error deleting resume:', error);
-        return false;
-      }
-
-      // If deleted resume was default, set another as default
-      if (resume.is_default) {
+  useEffect(() => {
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
         const { data: remainingResumes } = await supabase
           .from('resumes')
           .select('id')
-          .eq('user_id', resume.user_id)
+          .eq('user_id', userId)
           .limit(1);
 
         if (remainingResumes && remainingResumes.length > 0) {
-          await this.setDefaultResume(remainingResumes[0].id, resume.user_id);
+          await this.setDefaultResume(remainingResumes[0].id, userId);
         }
       }
 
       return true;
     } catch (error) {
-      console.error('Error deleting resume:', error);
+      console.error('Error bulk deleting resumes:', error);
       return false;
     }
   },
 
-  async moveResume(resumeId: string, folderId: string): Promise<boolean> {
+  async bulkMoveResumes(resumeIds: string[], targetFolderId: string): Promise<boolean> {
     try {
       const { error } = await supabase
         .from('resumes')
-        .update({ folder_id: folderId })
-        .eq('id', resumeId);
+        .update({ folder_id: targetFolderId })
+        .in('id', resumeIds);
 
       if (error) {
-        console.error('Error moving resume:', error);
+        console.error('Error bulk moving resumes:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error moving resume:', error);
+      console.error('Error bulk moving resumes:', error);
       return false;
     }
   },
-};
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+      } finally {
+        console.log('[AuthContext] Setting loading to false');
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
+    try {
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'user@example.com',
+        phone: '',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '',
+        gender: '',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: '',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: false,
+        isVerified: true, // Allow posting in demo mode
+        companyName: '',
+        companyId: '',
+        companyLocation: '',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      console.log('[AuthContext] Setting loading to false after offline profile creation');
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to offline profile error');
+      setLoading(false);
+    }
+  };
+  
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        console.log('[AuthContext] Setting loading to false after successful profile load');
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        console.log('[AuthContext] Setting loading to false - no profile data');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to exception');
+      setLoading(false);
+    }
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+}
