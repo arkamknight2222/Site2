@@ -178,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
+      console.log('[AuthContext] Starting registration process');
       // Create auth user
       const { data, error } = await supabase.auth.signUp({
         email: userData.email,
@@ -190,7 +191,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
         // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
         await supabase
           .from('points_history')
           .insert({
@@ -201,6 +230,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             category: 'bonus',
           });
 
+        console.log('[AuthContext] Loading user profile after registration');
         await loadUserProfile(data.user.id);
         return true;
       }
