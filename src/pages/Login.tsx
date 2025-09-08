@@ -21,21 +21,10 @@ export default function Login() {
     try {
       const success = await login(formData.emailOrPhone, formData.password);
       if (!success) {
-        setError('Invalid email or password. Please check your credentials and try again.');
+        setError('Invalid email/phone or password');
       }
     } catch (err) {
-      console.error('Login error:', err);
-      if (err instanceof Error) {
-        if (err.message.includes('Invalid login credentials')) {
-          setError('Invalid email or password. If you don\'t have an account, please sign up first.');
-        } else if (err.message.includes('Email not confirmed')) {
-          setError('Please check your email and confirm your account before signing in.');
-        } else {
-          setError('Login failed. Please try again or contact support if the problem persists.');
-        }
-      } else {
-        setError('Login failed. Please try again.');
-      }
+      setError('Login failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -62,13 +51,6 @@ export default function Login() {
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <p className="text-red-600 text-sm">{error}</p>
-              {error.includes('don\'t have an account') && (
-                <p className="text-red-600 text-sm mt-2">
-                  <Link to="/register" className="underline hover:no-underline">
-                    Click here to create an account
-                  </Link>
-                </p>
-              )}
             </div>
           )}
 
