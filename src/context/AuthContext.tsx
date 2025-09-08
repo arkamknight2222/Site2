@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '../lib/supabase';
+import { resumeService } from '../services/resumeService';
 
 interface User {
   id: string;
@@ -156,32 +157,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Create profile record
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: userData.email,
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran || false,
-            is_citizen: userData.isCitizen || false,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord || false,
-            skills: [],
-            points: 50,
-            is_employer: false,
-            is_verified: false,
-          });
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError);
-          throw new Error('Database error saving new user');
-        }
-
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
@@ -204,50 +179,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
-    supabase.auth.signOut();
-    setUser(null);
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
-  const updateUser = async (userData: Partial<User>) => {
+  const updateUser = (userData: Partial<User>) => {
     if (user) {
-      try {
-        // Update in database
-        const { error } = await supabase
-          .from('profiles')
-          .update({
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran,
-            is_citizen: userData.isCitizen,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord,
-            profile_picture: userData.profilePicture,
-            bio: userData.bio,
-            skills: userData.skills,
-            points: userData.points,
-            is_employer: userData.isEmployer,
-            is_verified: userData.isVerified,
-            company_name: userData.companyName,
-            company_id: userData.companyId,
-            company_location: userData.companyLocation,
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Error updating profile:', error);
-          return;
-        }
-
-        // Update local state
-        const updatedUser = { ...user, ...userData };
-        setUser(updatedUser);
-      } catch (error) {
-        console.error('Error updating user:', error);
-      }
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
     }
   };
 
