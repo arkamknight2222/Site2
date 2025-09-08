@@ -156,6 +156,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
+        // Create profile record
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            skills: [],
+            points: 50,
+            is_employer: false,
+            is_verified: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          throw new Error('Database error saving new user');
+        }
+
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
