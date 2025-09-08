@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         console.error('Login error:', error);
-        return false;
+        throw error;
       }
 
       if (data.user) {
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return false;
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      throw error;
     }
   };
 
@@ -156,26 +156,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data.user) {
-        // Update profile with additional information
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update({
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran || false,
-            is_citizen: userData.isCitizen || false,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord || false,
-          })
-          .eq('id', data.user.id);
-
-        if (profileError) {
-          console.error('Profile update error:', profileError);
-        }
-
         // Add welcome bonus to points history
         await supabase
           .from('points_history')
