@@ -113,17 +113,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log('[AuthContext] loadUserProfile started for userId:', userId);
     try {
       console.log('[AuthContext] Fetching profile from database');
-      const { data: profile, error } = await supabase
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
       console.log('[AuthContext] Profile fetch response:', { profile, error });
 
       if (error) {
-        console.error('Error loading profile:', error);
+        console.error('[AuthContext] Error loading profile:', error);
         console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
+          console.log('[AuthContext] Profile not found, creating new profile');
+          await createMissingProfile(userId);
+          return;
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
         return;
       }
 
@@ -151,12 +170,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         console.log('[AuthContext] Setting user data:', userData);
         setUser(userData);
+        console.log('[AuthContext] Setting loading to false after successful profile load');
+        setLoading(false);
       } else {
         console.log('[AuthContext] No profile data found');
+        console.log('[AuthContext] Setting loading to false - no profile data');
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Error loading user profile:', error);
+      console.error('[AuthContext] Error loading user profile:', error);
       console.log('[AuthContext] Exception in loadUserProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to exception');
+      setLoading(false);
+    }
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
     }
   };
 
