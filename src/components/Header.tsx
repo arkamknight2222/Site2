@@ -1,393 +1,206 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '../lib/supabase';
-import { resumeService } from '../services/resumeService';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Menu, X, Zap, User, LogOut, Bell } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
-// Add immediate debugging
-console.log('[AuthContext] Module loaded, supabase client:', supabase);
-console.log('[AuthContext] Environment check:', {
-  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
-  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
-  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
-});
+export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const { user, logout } = useAuth();
+  const location = useLocation();
 
-interface User {
-  id: string;
-  email: string;
-  phone?: string;
-  firstName?: string;
-  lastName?: string;
-  age?: string;
-  gender?: string;
-  isVeteran?: boolean;
-  isCitizen?: boolean;
-  highestDegree?: string;
-  hasCriminalRecord?: boolean;
-  resumeUrl?: string;
-  profilePicture?: string;
-  points: number;
-  isEmployer?: boolean;
-  companyName?: string;
-  companyId?: string;
-  companyLocation?: string;
-  isVerified?: boolean;
-}
+  const navigation = [
+    { name: 'Home', href: '/', current: location.pathname === '/' },
+    { name: 'Jobs', href: '/jobs', current: location.pathname === '/jobs' },
+    { name: 'Events', href: '/events', current: location.pathname === '/events' },
+    ...(user ? [
+      { name: 'Dashboard', href: '/dashboard', current: location.pathname === '/dashboard' },
+      { name: 'Tracker', href: '/tracker', current: location.pathname === '/tracker' },
+      { name: 'Post', href: '/hire', current: location.pathname === '/hire' },
+    ] : []),
+  ];
 
-interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  register: (userData: RegisterData) => Promise<boolean>;
-  logout: () => void;
-  loading: boolean;
-  updateUser: (userData: Partial<User>) => void;
-}
-
-interface RegisterData {
-  email: string;
-  phone: string;
-  password: string;
-  firstName?: string;
-  lastName?: string;
-  age?: string;
-  gender?: string;
-  isVeteran?: boolean;
-  isCitizen?: boolean;
-  highestDegree?: string;
-  hasCriminalRecord?: boolean;
-  resumeFile?: File;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    console.log('[AuthContext] useEffect started - initializing auth');
-    // Check for existing Supabase session
-    const getSession = async () => {
-      console.log('[AuthContext] getSession started');
-      try {
-        console.log('[AuthContext] Calling supabase.auth.getSession()');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        console.log('[AuthContext] getSession response:', { session, error });
-        
-        if (error) {
-          console.error('[AuthContext] Error getting session:', error);
-          return;
-        }
-        
-        if (session?.user) {
-          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
-          await loadUserProfile(session.user.id);
-        } else {
-          console.log('[AuthContext] No session found');
-        }
-      } catch (error) {
-        console.error('[AuthContext] Exception in getSession:', error);
-      } finally {
-        console.log('[AuthContext] Setting loading to false');
-        setLoading(false);
-      }
-    };
-
-    getSession();
-
-    // Listen for auth changes
-    console.log('[AuthContext] Setting up auth state change listener');
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
-      if (session?.user) {
-        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
-        await loadUserProfile(session.user.id);
-      } else {
-        console.log('[AuthContext] Auth change - clearing user');
-        setUser(null);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const loadUserProfile = async (userId: string) => {
-    console.log('[AuthContext] loadUserProfile started for userId:', userId);
-    try {
-      console.log('[AuthContext] Fetching profile from database');
-      
-      // Add timeout to prevent hanging
-      const profilePromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
-      );
-      
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
-
-      console.log('[AuthContext] Profile fetch response:', { profile, error });
-
-      if (error) {
-        console.error('[AuthContext] Error loading profile:', error);
-        console.log('[AuthContext] Profile error details:', error.message, error.code);
-        
-        // Check if it's a network error (Failed to fetch)
-        if (error.message && error.message.includes('Failed to fetch')) {
-          console.log('[AuthContext] Network error detected, using offline mode');
-          
-          // Get user email from auth
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-          // Create a mock profile with default values
-          const offlineProfile: User = {
-            id: userId,
-            email: authUser?.email || 'user@example.com',
-            phone: '',
-            firstName: 'Demo',
-            lastName: 'User',
-            age: '',
-            gender: '',
-            isVeteran: false,
-            isCitizen: true,
-            highestDegree: '',
-            hasCriminalRecord: false,
-            profilePicture: '',
-            points: 150, // Give extra points for demo
-            isEmployer: false,
-            isVerified: true, // Allow posting in demo mode
-            companyName: '',
-            companyId: '',
-            companyLocation: '',
-          };
-          
-          console.log('[AuthContext] Setting offline user profile:', offlineProfile);
-          setUser(offlineProfile);
-          console.log('[AuthContext] Setting loading to false after offline profile creation');
-          setLoading(false);
-          
-          // Show notification about offline mode
-          setTimeout(() => {
-            console.log('[AuthContext] Showing offline mode notification');
-            // You could show a toast notification here
-          }, 1000);
-          
-          return;
-        }
-        
-        // For other errors, set loading to false
-        console.log('[AuthContext] Setting loading to false due to profile error');
-        setLoading(false);
-        return;
-      }
-
-      if (profile) {
-        console.log('[AuthContext] Profile found, creating user object');
-        const userData: User = {
-          id: profile.id,
-          email: profile.email,
-          phone: profile.phone,
-          firstName: profile.first_name,
-          lastName: profile.last_name,
-          age: profile.age?.toString(),
-          gender: profile.gender,
-          isVeteran: profile.is_veteran,
-          isCitizen: profile.is_citizen,
-          highestDegree: profile.highest_degree,
-          hasCriminalRecord: profile.has_criminal_record,
-          profilePicture: profile.profile_picture,
-          points: profile.points,
-          isEmployer: profile.is_employer,
-          isVerified: profile.is_verified,
-          companyName: profile.company_name,
-          companyId: profile.company_id,
-          companyLocation: profile.company_location,
-        };
-        console.log('[AuthContext] Setting user data:', userData);
-        setUser(userData);
-        console.log('[AuthContext] Setting loading to false after successful profile load');
-        setLoading(false);
-      } else {
-        console.log('[AuthContext] No profile data found');
-        console.log('[AuthContext] Setting loading to false - no profile data');
-        setLoading(false);
-      }
-    } catch (error) {
-      console.error('[AuthContext] Error loading user profile:', error);
-      console.log('[AuthContext] Exception in loadUserProfile:', error);
-      console.log('[AuthContext] Setting loading to false due to exception');
-      setLoading(false);
-    }
-  };
-  
-  const createMissingProfile = async (userId: string) => {
-    try {
-      console.log('[AuthContext] Creating missing profile for user:', userId);
-      
-      // Get user email from auth
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (!authUser) {
-        console.log('[AuthContext] No auth user found, cannot create profile');
-        setLoading(false);
-        return;
-      }
-      
-      const { error: createError } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          email: authUser.email || '',
-          points: 50,
-          is_employer: false,
-          is_verified: false,
-          is_veteran: false,
-          is_citizen: false,
-          has_criminal_record: false,
-        });
-      
-      if (createError) {
-        console.error('[AuthContext] Error creating profile:', createError);
-        setLoading(false);
-        return;
-      }
-      
-      console.log('[AuthContext] Profile created successfully, loading it');
-      await loadUserProfile(userId);
-      
-    } catch (error) {
-      console.error('[AuthContext] Error in createMissingProfile:', error);
-      setLoading(false);
-    }
+  const handleLogout = () => {
+    logout();
+    setIsProfileMenuOpen(false);
   };
 
-  const login = async (email: string, password: string): Promise<boolean> => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error('Login error:', error);
-        throw error;
-      }
-
-      if (data.user) {
-        await loadUserProfile(data.user.id);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
-    }
-  };
-
-  const register = async (userData: RegisterData): Promise<boolean> => {
-    try {
-      console.log('[AuthContext] Starting registration process');
-      // Create auth user
-      const { data, error } = await supabase.auth.signUp({
-        email: userData.email,
-        password: userData.password,
-      });
-
-      if (error) {
-        console.error('Registration error:', error);
-        return false;
-      }
-
-      if (data.user) {
-        console.log('[AuthContext] Auth user created, creating profile');
-        
-        // Create profile entry in profiles table
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: data.user.id,
-            email: userData.email,
-            phone: userData.phone,
-            first_name: userData.firstName,
-            last_name: userData.lastName,
-            age: userData.age ? parseInt(userData.age) : null,
-            gender: userData.gender,
-            is_veteran: userData.isVeteran || false,
-            is_citizen: userData.isCitizen || false,
-            highest_degree: userData.highestDegree,
-            has_criminal_record: userData.hasCriminalRecord || false,
-            points: 50, // Starting points
-          });
-
-        if (profileError) {
-          console.error('[AuthContext] Error creating profile:', profileError);
-          return false;
-        }
-
-        console.log('[AuthContext] Profile created successfully');
-
-        // Add welcome bonus to points history
-        console.log('[AuthContext] Adding welcome bonus to points history');
-        await supabase
-          .from('points_history')
-          .insert({
-            user_id: data.user.id,
-            type: 'earned',
-            amount: 50,
-            description: 'Welcome bonus for new members',
-            category: 'bonus',
-          });
-
-        console.log('[AuthContext] Loading user profile after registration');
-        await loadUserProfile(data.user.id);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.error('Registration error:', error);
-      return false;
-    }
-  };
-
-  const logout = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-    } catch (error) {
-      console.error('Logout error:', error);
-    }
-  };
-
-  const updateUser = (userData: Partial<User>) => {
-    if (user) {
-      const updatedUser = { ...user, ...userData };
-      setUser(updatedUser);
-    }
-  };
+  // Check if we're in demo mode (when Supabase is not properly connected)
+  const isDemoMode = import.meta.env.VITE_SUPABASE_URL === 'https://placeholder.supabase.co' || 
+                    !import.meta.env.VITE_SUPABASE_URL;
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        login,
-        register,
-        logout,
-        loading,
-        updateUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-}
+    <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
+              <Zap className="h-6 w-6 text-white" />
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              Rush Working
+            </span>
+          </Link>
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+          {/* Demo Mode Indicator */}
+          {isDemoMode && (
+            <div className="hidden sm:flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
+              <span className="w-2 h-2 bg-yellow-500 rounded-full mr-2 animate-pulse"></span>
+              Demo Mode
+            </div>
+          )}
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex space-x-8">
+            {navigation.map((item) => (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`${
+                  item.current
+                    ? 'text-blue-600 border-b-2 border-blue-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                } px-3 py-2 text-sm font-medium transition-colors`}
+              >
+                {item.name}
+              </Link>
+            ))}
+          </nav>
+
+          {/* User Menu */}
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="flex items-center space-x-2 bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-lg transition-colors"
+                >
+                  <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
+                    {user.profilePicture ? (
+                      <img 
+                        src={user.profilePicture} 
+                        alt="Profile" 
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <User className="h-4 w-4 text-white" />
+                    )}
+                  </div>
+                  <span className="hidden sm:block text-sm font-medium text-gray-700">
+                    {user.firstName || 'User'}
+                  </span>
+                  <div className="hidden sm:flex items-center bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs font-semibold">
+                    <Zap className="h-3 w-3 mr-1" />
+                    {user.points}
+                  </div>
+                </button>
+
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Profile Settings
+                    </Link>
+                    <Link
+                      to="/points-history"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Points History
+                    </Link>
+                    <Link
+                      to="/resume"
+                      className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Resume Manager
+                    </Link>
+                    <div className="border-t border-gray-200 my-1"></div>
+                    <button
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="h-4 w-4 inline mr-2" />
+                      Sign Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center space-x-4">
+                <Link
+                  to="/login"
+                  className="text-gray-600 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  to="/register"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-blue-700 hover:to-purple-700 transition-all"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            )}
+
+            {/* Mobile menu button */}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="md:hidden p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            >
+              {isMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4 border-t border-gray-200">
+            <div className="space-y-2">
+              {navigation.map((item) => (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  className={`${
+                    item.current
+                      ? 'text-blue-600 bg-blue-50'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                  } block px-3 py-2 text-base font-medium rounded-lg transition-colors`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.name}
+                </Link>
+              ))}
+              {!user && (
+                <div className="pt-4 border-t border-gray-200 space-y-2">
+                  <Link
+                    to="/login"
+                    className="block px-3 py-2 text-base font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="block px-3 py-2 text-base font-medium bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Sign Up
+                  </Link>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
 }
