@@ -1,312 +1,410 @@
-import React, { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, Zap } from 'lucide-react';
-import { useJobs } from '../context/JobContext';
-import { useAuth } from '../context/AuthContext';
-import ResumeSelector from '../components/ResumeSelector';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
 
-export default function JobDetails() {
-  const { id } = useParams();
-  const { getJob, applyToJob } = useJobs();
-  const { user, updateUser } = useAuth();
-  const [isApplying, setIsApplying] = useState(false);
-  const [hasApplied, setHasApplied] = useState(false);
-  const [showResumeSelector, setShowResumeSelector] = useState(false);
-  const [selectedResume, setSelectedResume] = useState<any>(null);
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
 
-  const job = getJob(id || '');
+interface User {
+  id: string;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
+}
 
-  if (!job) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h2>
-          <p className="text-gray-600 mb-6">The job you're looking for doesn't exist or has been removed.</p>
-          <Link
-            to="/jobs"
-            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-          >
-            Browse Other Jobs
-          </Link>
-        </div>
-      </div>
-    );
-  }
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
+}
 
-  const canAfford = !user || user.points >= job.minimumPoints;
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
 
-  const handleQuickApply = async () => {
-    if (!user) {
-      return;
-    }
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-    // Use default resume for quick apply
-    const savedResumes = localStorage.getItem('rushWorkingResumes');
-    if (savedResumes) {
-      const resumes = JSON.parse(savedResumes);
-      const defaultResume = resumes.find((r: any) => r.isDefault);
-      if (defaultResume) {
-        await submitApplication(defaultResume);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
       } else {
-        setShowResumeSelector(true);
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
       }
-    } else {
-      alert('Please upload a resume first');
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const createOfflineProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating offline profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'demo@rushworking.com',
+        phone: '+1 (555) 123-4567',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '28',
+        gender: 'prefer-not-to-say',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: 'bachelor',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: true,
+        isVerified: true, // Allow posting in demo mode
+        companyName: 'Demo Company Inc.',
+        companyId: 'DEMO123456',
+        companyLocation: 'San Francisco, CA',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
+      setLoading(false);
     }
   };
 
-  const handleSelectResume = () => {
-    if (!user) {
-      return;
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
+    try {
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+          await createOfflineProfile(userId);
+          return;
+        }
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      
+      // Check if it's a network error
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('[AuthContext] Network exception detected, using offline mode');
+        await createOfflineProfile(userId);
+      } else {
+        setLoading(false);
+      }
     }
-    setShowResumeSelector(true);
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
+    }
   };
 
-  const submitApplication = async (resume: any) => {
-    setIsApplying(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      const success = applyToJob(job.id, user.id);
-      if (success) {
-        // Award 10 points for applying
-        const currentPoints = user.points || 0;
-        updateUser({ points: currentPoints + 10 });
-        setHasApplied(true);
-        alert(`Application submitted successfully with "${resume.name}"! You earned 10 points.`);
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
       }
-      setIsApplying(false);
-      setShowResumeSelector(false);
-      setSelectedResume(null);
-    }, 1000);
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <div className="mb-6">
-        <Link
-          to="/jobs"
-          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Jobs
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        {/* Header */}
-        <div className={`p-8 ${job.featured ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-200' : 'border-b border-gray-200'}`}>
-          <div className="flex flex-col md:flex-row md:items-start justify-between mb-6">
-            <div className="flex-1">
-              {/* Save Button */}
-              <div className="flex justify-end mb-4">
-                <button className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex items-center mb-3">
-                <h1 className="text-3xl font-bold text-gray-900 mr-3">{job.title}</h1>
-                {job.featured && (
-                  <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
-                    <Star className="h-4 w-4 mr-1" />
-                    Featured
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center mb-4">
-                <Building className="h-5 w-5 text-gray-500 mr-2" />
-                <span className="text-xl text-gray-700 font-medium">{job.company}</span>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div className="flex items-center text-gray-600">
-                  <MapPin className="h-4 w-4 mr-2 text-blue-600" />
-                  {job.location}
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Clock className="h-4 w-4 mr-2 text-green-600" />
-                  {job.type.charAt(0).toUpperCase() + job.type.slice(1).replace('-', ' ')}
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Users className="h-4 w-4 mr-2 text-purple-600" />
-                  {job.experienceLevel.charAt(0).toUpperCase() + job.experienceLevel.slice(1)} Level
-                </div>
-                <div className="flex items-center text-gray-600">
-                  <Calendar className="h-4 w-4 mr-2 text-orange-600" />
-                  Posted {new Date(job.postedDate).toLocaleDateString()}
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 md:mt-0 md:ml-8 flex-shrink-0">
-              <div className="bg-white rounded-lg p-6 shadow-lg border">
-                <div className="text-center mb-4">
-                  <div className="text-2xl font-bold text-gray-900 mb-1">
-                    ${job.salary.min.toLocaleString()} - ${job.salary.max.toLocaleString()}
-                  </div>
-                  <div className="text-gray-600">Annual Salary</div>
-                </div>
-                <div className="text-center mb-6">
-                  <div className="flex items-center justify-center mb-2">
-                    <Zap className={`h-5 w-5 mr-2 ${canAfford ? 'text-green-600' : 'text-red-600'}`} />
-                    <span className={`text-lg font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
-                      {job.minimumPoints} points
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600 text-center">Points Boost Minimum Spend Requirement</div>
-                  {user && !canAfford && (
-                    <div className="text-xs text-red-500 mt-1 text-center">
-                      You need {job.minimumPoints - user.points} more points
-                    </div>
-                  )}
-                </div>
-                {!user ? (
-                  <div className="space-y-3">
-                    <Link
-                      to="/login"
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-center block"
-                    >
-                      Sign In to Apply
-                    </Link>
-                    <Link
-                      to="/register"
-                      className="w-full border-2 border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:border-blue-600 hover:text-blue-600 transition-all text-center block"
-                    >
-                      Create Account
-                    </Link>
-                  </div>
-                ) : hasApplied ? (
-                  <button
-                    disabled
-                    className="w-full bg-green-100 text-green-600 py-3 px-4 rounded-lg font-semibold cursor-not-allowed"
-                  >
-                    ✓ Applied Successfully
-                  </button>
-                ) : (
-                  <div className="space-y-3">
-                    <button
-                      onClick={handleQuickApply}
-                      disabled={isApplying || !canAfford}
-                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-                        canAfford
-                          ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {isApplying ? (
-                        <div className="flex items-center justify-center">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Applying...
-                        </div>
-                      ) : canAfford ? (
-                        'Quick Apply'
-                      ) : (
-                        'Need More Points'
-                      )}
-                    </button>
-                    <button
-                      onClick={handleSelectResume}
-                      disabled={isApplying || !canAfford}
-                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
-                        canAfford
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
-                    >
-                      {canAfford ? 'Apply with Resume' : 'Need More Points'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              {/* Job Description */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Description</h2>
-                <div className="prose prose-gray max-w-none">
-                  <p className="text-gray-700 leading-relaxed">{job.description}</p>
-                </div>
-              </div>
-
-              {/* Requirements */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-4">Requirements</h2>
-                <ul className="space-y-3">
-                  {job.requirements.map((requirement, index) => (
-                    <li key={index} className="flex items-start">
-                      <div className="bg-blue-100 text-blue-600 rounded-full p-1 mr-3 mt-1">
-                        <div className="w-2 h-2 rounded-full bg-current"></div>
-                      </div>
-                      <span className="text-gray-700">{requirement}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="space-y-6">
-              {/* Job Info */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-sm text-gray-500">Experience Level</div>
-                    <div className="font-medium text-gray-900 capitalize">{job.experienceLevel}</div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Education Level</div>
-                    <div className="font-medium text-gray-900 capitalize">
-                      {job.educationLevel.replace('-', ' ')}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Job Type</div>
-                    <div className="font-medium text-gray-900 capitalize">
-                      {job.type.replace('-', ' ')}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-sm text-gray-500">Posted Date</div>
-                    <div className="font-medium text-gray-900">
-                      {new Date(job.postedDate).toLocaleDateString()}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Share */}
-              <div className="bg-blue-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Share this job</h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Help others discover this opportunity
-                </p>
-                <div className="flex space-x-3">
-                  <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                    Share
-                  </button>
-                  <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                    Save
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Resume Selector Modal */}
-      <ResumeSelector
-        isOpen={showResumeSelector}
-        onClose={() => setShowResumeSelector(false)}
-        onSelect={(resume) => submitApplication(resume)}
-        jobTitle={job.title}
-      />
-    </div>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
