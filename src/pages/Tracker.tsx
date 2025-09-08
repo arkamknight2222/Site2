@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { applicationService, Application } from '../services/applicationService';
-import { pointsService } from '../services/pointsService';
 
 export default function Tracker() {
   const { user, updateUser } = useAuth();
@@ -12,40 +10,67 @@ export default function Tracker() {
   const [showRemovePointsModal, setShowRemovePointsModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
 
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [applications, setApplications] = useState([
+    {
+      id: '1',
+      jobTitle: 'Senior Frontend Developer',
+      company: 'TechCorp Inc.',
+      appliedDate: '2025-01-08',
+      status: 'pending',
+      pointsUsed: 100,
+      addedPoints: 0,
+      minimumPoints: 120,
+      response: null,
+      hasDirectMessage: false,
+    },
+    {
+      id: '2',
+      jobTitle: 'Marketing Specialist',
+      company: 'Growth Labs',
+      appliedDate: '2025-01-07',
+      status: 'interviewed',
+      pointsUsed: 75,
+      addedPoints: 25,
+      minimumPoints: 100,
+      response: 'Thank you for your application. We\'d like to schedule an interview.',
+      hasDirectMessage: true,
+    },
+    {
+      id: '3',
+      jobTitle: 'Data Analyst',
+      company: 'Data Solutions LLC',
+      appliedDate: '2025-01-06',
+      status: 'rejected',
+      pointsUsed: 80,
+      addedPoints: 0,
+      minimumPoints: 90,
+      response: 'Thank you for your interest. We have decided to move forward with another candidate.',
+      hasDirectMessage: true,
+    },
+    {
+      id: '4',
+      jobTitle: 'UX Designer',
+      company: 'Creative Studios',
+      appliedDate: '2025-01-05',
+      status: 'accepted',
+      pointsUsed: 90,
+      addedPoints: 30,
+      minimumPoints: 110,
+      response: 'Congratulations! We would like to offer you the position.',
+      hasDirectMessage: true,
+    },
+  ]);
 
-  // Load applications from database
-  React.useEffect(() => {
-    if (user) {
-      loadApplications();
-    }
-  }, [user]);
-
-  const loadApplications = async () => {
-    if (!user) return;
-    const applicationsData = await applicationService.getUserApplications(user.id);
-    setApplications(applicationsData);
-  };
-
-  const handleBuyPoints = async () => {
-    if (!user) return;
-    
+  const handleBuyPoints = () => {
+    // Simulate buying points
     const pointsToAdd = 100;
-    const cost = 9.99;
-    
-    const success = await pointsService.purchasePoints(user.id, pointsToAdd, cost);
-    
-    if (success) {
-      const currentPoints = user.points || 0;
-      updateUser({ points: currentPoints + pointsToAdd });
-      setShowPointsModal(false);
-      alert(`Successfully purchased ${pointsToAdd} points!`);
-    } else {
-      alert('Failed to purchase points. Please try again.');
-    }
+    const currentPoints = user?.points || 0;
+    updateUser({ points: currentPoints + pointsToAdd });
+    setShowPointsModal(false);
+    alert(`Successfully purchased ${pointsToAdd} points!`);
   };
 
-  const handleAddPoints = async (pointsToAdd: number) => {
+  const handleAddPoints = (pointsToAdd: number) => {
     if (!selectedApplication) return;
     
     const currentUserPoints = user?.points || 0;
@@ -54,50 +79,24 @@ export default function Tracker() {
       return;
     }
 
-    const application = applications.find(app => app.id === selectedApplication);
-    if (!application) return;
+    // Update user points (deduct)
+    updateUser({ points: currentUserPoints - pointsToAdd });
 
-    // Update application points in database
-    const success = await applicationService.updateApplicationPoints(
-      selectedApplication,
-      pointsToAdd,
-      user.id
+    // Update application with added points
+    setApplications(prevApps => 
+      prevApps.map(app => 
+        app.id === selectedApplication 
+          ? { ...app, addedPoints: app.addedPoints + pointsToAdd }
+          : app
+      )
     );
 
-    if (success) {
-      // Update user points (deduct)
-      const newUserPoints = currentUserPoints - pointsToAdd;
-      await pointsService.updateUserPoints(user.id, newUserPoints);
-      updateUser({ points: newUserPoints });
-
-      // Add points transaction
-      await pointsService.addPointsTransaction(
-        user.id,
-        'spent',
-        -pointsToAdd,
-        `Added points boost to ${application.job?.title || 'application'}`,
-        'boost',
-        application.jobId
-      );
-
-      // Update local state
-      setApplications(prevApps => 
-        prevApps.map(app => 
-          app.id === selectedApplication 
-            ? { ...app, addedPoints: app.addedPoints + pointsToAdd }
-            : app
-        )
-      );
-
-      setShowAddPointsModal(false);
-      setSelectedApplication(null);
-      alert(`Successfully added ${pointsToAdd} points to your application!`);
-    } else {
-      alert('Failed to add points. Please try again.');
-    }
+    setShowAddPointsModal(false);
+    setSelectedApplication(null);
+    alert(`Successfully added ${pointsToAdd} points to your application!`);
   };
 
-  const handleRemovePoints = async (pointsToRemove: number) => {
+  const handleRemovePoints = (pointsToRemove: number) => {
     if (!selectedApplication) return;
     
     const application = applications.find(app => app.id === selectedApplication);
@@ -106,48 +105,24 @@ export default function Tracker() {
       return;
     }
 
-    // Update application points in database (remove points)
-    const success = await applicationService.updateApplicationPoints(
-      selectedApplication,
-      -pointsToRemove,
-      user.id
+    const currentUserPoints = user?.points || 0;
+    
+    // Update user points (refund)
+    updateUser({ points: currentUserPoints + pointsToRemove });
+
+    // Update application with removed points
+    setApplications(prevApps => 
+      prevApps.map(app => 
+        app.id === selectedApplication 
+          ? { ...app, addedPoints: app.addedPoints - pointsToRemove }
+          : app
+      )
     );
 
-    if (success) {
-      const currentUserPoints = user?.points || 0;
-      
-      // Update user points (refund)
-      const newUserPoints = currentUserPoints + pointsToRemove;
-      await pointsService.updateUserPoints(user.id, newUserPoints);
-      updateUser({ points: newUserPoints });
-
-      // Add points transaction
-      await pointsService.addPointsTransaction(
-        user.id,
-        'earned',
-        pointsToRemove,
-        `Removed points boost from ${application.job?.title || 'application'}`,
-        'refund',
-        application.jobId
-      );
-
-      // Update local state
-      setApplications(prevApps => 
-        prevApps.map(app => 
-          app.id === selectedApplication 
-            ? { ...app, addedPoints: app.addedPoints - pointsToRemove }
-            : app
-        )
-      );
-
-      setShowRemovePointsModal(false);
-      setSelectedApplication(null);
-      alert(`Successfully removed ${pointsToRemove} points from your application!`);
-    } else {
-      alert('Failed to remove points. Please try again.');
-    }
+    setShowRemovePointsModal(false);
+    setSelectedApplication(null);
+    alert(`Successfully removed ${pointsToRemove} points from your application!`);
   };
-  
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'pending':
@@ -274,9 +249,9 @@ export default function Tracker() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                        {application.job?.title || 'Unknown Job'}
+                        {application.jobTitle}
                       </h3>
-                      <p className="text-gray-600">{application.job?.company || 'Unknown Company'}</p>
+                      <p className="text-gray-600">{application.company}</p>
                     </div>
                     <div className="flex items-center ml-4">
                       {getStatusIcon(application.status)}
@@ -287,7 +262,7 @@ export default function Tracker() {
                   </div>
                   <div className="flex items-center text-sm text-gray-500 mb-2">
                     <Calendar className="h-4 w-4 mr-1" />
-                    Applied on {new Date(application.createdAt).toLocaleDateString()}
+                    Applied on {new Date(application.appliedDate).toLocaleDateString()}
                   </div>
                   {application.response && (
                     <div className="mt-3 p-3 bg-gray-50 rounded-lg">
@@ -300,14 +275,14 @@ export default function Tracker() {
                       <div>
                         <p className="text-sm text-blue-700 font-medium mb-2">Points Information:</p>
                         <div className="text-sm text-blue-600 font-semibold">
-                          {application.addedPoints}/{application.job?.minimumPoints || 0} points
+                          {application.addedPoints}/{application.minimumPoints} points
                         </div>
                       </div>
                       {application.addedPoints === 0 ? (
                         <span className="bg-yellow-100 text-yellow-800 px-3 py-2 rounded-full text-sm font-medium flex items-center">
                           No Boost Applied
                         </span>
-                      ) : application.addedPoints < (application.job?.minimumPoints || 0) ? (
+                      ) : application.addedPoints < application.minimumPoints ? (
                         <span className="bg-red-100 text-red-800 px-3 py-2 rounded-full text-sm font-medium flex items-center">
                           Not Enough
                         </span>
