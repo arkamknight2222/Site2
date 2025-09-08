@@ -59,6 +59,8 @@ export interface Database {
           company_name?: string;
           company_id?: string;
           company_location?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Update: {
           email?: string;
