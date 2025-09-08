@@ -1,210 +1,393 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Zap, User, LogOut } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+import { resumeService } from '../services/resumeService';
 
-export default function Header() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
-  const location = useLocation();
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
 
-  const isActive = (path: string) => location.pathname === path;
+interface User {
+  id: string;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
+}
+
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
+}
+
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+      } finally {
+        console.log('[AuthContext] Setting loading to false');
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
+    try {
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+          
+          // Get user email from auth
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+          // Create a mock profile with default values
+          const offlineProfile: User = {
+            id: userId,
+            email: authUser?.email || 'user@example.com',
+            phone: '',
+            firstName: 'Demo',
+            lastName: 'User',
+            age: '',
+            gender: '',
+            isVeteran: false,
+            isCitizen: true,
+            highestDegree: '',
+            hasCriminalRecord: false,
+            profilePicture: '',
+            points: 150, // Give extra points for demo
+            isEmployer: false,
+            isVerified: true, // Allow posting in demo mode
+            companyName: '',
+            companyId: '',
+            companyLocation: '',
+          };
+          
+          console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+          setUser(offlineProfile);
+          console.log('[AuthContext] Setting loading to false after offline profile creation');
+          setLoading(false);
+          
+          // Show notification about offline mode
+          setTimeout(() => {
+            console.log('[AuthContext] Showing offline mode notification');
+            // You could show a toast notification here
+          }, 1000);
+          
+          return;
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        console.log('[AuthContext] Setting loading to false after successful profile load');
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        console.log('[AuthContext] Setting loading to false - no profile data');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      console.log('[AuthContext] Setting loading to false due to exception');
+      setLoading(false);
+    }
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
+    }
+  };
+
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
+  };
 
   return (
-    <header className="bg-white/95 backdrop-blur-sm shadow-lg sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <Link to="/" className="flex items-center space-x-2">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-2 rounded-lg">
-              <Zap className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Rush Working
-            </span>
-          </Link>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              to="/jobs"
-              className={`transition-colors ${
-                isActive('/jobs')
-                  ? 'text-blue-600 font-semibold'
-                  : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              Find Jobs
-            </Link>
-            <Link
-              to="/events"
-              className={`transition-colors ${
-                isActive('/events')
-                  ? 'text-blue-600 font-semibold'
-                  : 'text-gray-700 hover:text-blue-600'
-              }`}
-            >
-              Events
-            </Link>
-            {user ? (
-              <>
-                <Link
-                  to="/dashboard"
-                  className={`transition-colors ${
-                    isActive('/dashboard')
-                      ? 'text-blue-600 font-semibold'
-                      : 'text-gray-700 hover:text-blue-600'
-                  }`}
-                >
-                  Dashboard
-                </Link>
-                <Link
-                  to="/hire"
-                  className={`transition-colors ${
-                    isActive('/hire')
-                      ? 'text-blue-600 font-semibold'
-                      : 'text-gray-700 hover:text-blue-600'
-                  }`}
-                >
-                  Post
-                </Link>
-                <div className="flex items-center space-x-4">
-                  <Link
-                    to="/points-history"
-                    className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium hover:from-green-600 hover:to-blue-600 transition-all"
-                  >
-                    {user.points || 0} pts
-                  </Link>
-                  <div className="relative group">
-                    <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600 transition-colors">
-                      <User className="h-5 w-5" />
-                      <span>{user.email}</span>
-                    </button>
-                    <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors"
-                      >
-                        Profile
-                      </Link>
-                      <Link
-                        to="/resume"
-                        className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors"
-                      >
-                        Resume Manager
-                      </Link>
-                      <Link
-                        to="/tracker"
-                        className="block px-4 py-2 text-gray-700 hover:bg-blue-50 transition-colors"
-                      >
-                        Tracker
-                      </Link>
-                      <button
-                        onClick={logout}
-                        className="w-full text-left px-4 py-2 text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors flex items-center space-x-2"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>Logout</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center space-x-4">
-                <Link
-                  to="/login"
-                  className="text-gray-700 hover:text-blue-600 transition-colors"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  to="/register"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-                >
-                  Sign Up
-                </Link>
-              </div>
-            )}
-          </nav>
-
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-          </button>
-        </div>
-
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <div className="md:hidden py-4 border-t">
-            <div className="flex flex-col space-y-2">
-              <Link
-                to="/jobs"
-                className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Find Jobs
-              </Link>
-              <Link
-                to="/events"
-                className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Events
-              </Link>
-              {user ? (
-                <>
-                  <Link
-                    to="/dashboard"
-                    className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    to="/hire"
-                    className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Post
-                  </Link>
-                  <div className="px-4 py-2 text-sm text-gray-600">
-                    Points: {user.points || 0}
-                  </div>
-                  <button
-                    onClick={() => {
-                      logout();
-                      setIsMenuOpen(false);
-                    }}
-                    className="text-left px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    Logout
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="px-4 py-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="mx-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white text-center rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </header>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
