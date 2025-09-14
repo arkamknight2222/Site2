@@ -54,7 +54,7 @@ export default function ResumeSelector({ onSelect, onClose, title = 'Select a Re
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.;
+    const file = e.target.files?.[0];
     if (!file || !user) return;
 
     // Validate file type
