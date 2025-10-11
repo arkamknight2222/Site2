@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Users, Calendar, DollarSign, MapPin, Building, Edit, Trash2, Eye } from 'lucide-react';
 import { Search } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
@@ -6,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
 
 export default function Hire() {
+  const navigate = useNavigate();
   const { addJob, updateJob, deleteJob } = useJobs();
   const { user, updateUser } = useAuth();
   const [showPostForm, setShowPostForm] = useState(false);
@@ -515,8 +517,9 @@ export default function Hire() {
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => setSelectedPost(selectedPost === item.id ? null : item.id)}
+                    onClick={() => navigate(`/hire/job/${item.id}/applicants`)}
                     className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                    title="View Applicants"
                   >
                     <Eye className="h-5 w-5" />
                   </button>
@@ -526,7 +529,7 @@ export default function Hire() {
                   >
                     <Edit className="h-5 w-5" />
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleDeleteJob(item.id)}
                     className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
                   >
@@ -534,54 +537,6 @@ export default function Hire() {
                   </button>
                 </div>
               </div>
-              
-              {/* Applicant Preview */}
-              {selectedPost === item.id && (
-                <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-semibold text-gray-900 mb-4">
-                    Recent {item.isEvent ? 'Registrants' : 'Applicants'} (Sample)
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-lg border">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-medium text-gray-900">
-                          Random {item.isEvent ? 'Registrant' : 'Applicant'} #1
-                        </h5>
-                        <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">Standard Pool</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {item.isEvent ? 'Registered' : 'Applied'} 2 days ago
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {item.isEvent 
-                          ? 'Mid-level professional, interested in networking' 
-                          : '5+ years React experience, Full-stack developer'
-                        }
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg border border-blue-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <h5 className="font-medium text-gray-900">
-                          Priority {item.isEvent ? 'Registrant' : 'Applicant'} #1
-                        </h5>
-                        <span className="bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">Points Pool</span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {item.isEvent ? 'Registered' : 'Applied'} 1 day ago • 120 points used
-                      </p>
-                      <p className="text-sm text-gray-700">
-                        {item.isEvent 
-                          ? 'Senior professional seeking career advancement' 
-                          : 'Senior developer with team lead experience'
-                        }
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-3">
-                    * Showing up to 50 random {item.isEvent ? 'registrants' : 'applicants'} and 50 points-based {item.isEvent ? 'registrants' : 'applicants'} per {item.isEvent ? 'event' : 'job'} posting
-                  </p>
-                </div>
-              )}
             </div>
           ))}
         </div>

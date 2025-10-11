@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard';
 import Tracker from './pages/Tracker';
 import Profile from './pages/Profile';
 import Hire from './pages/Hire';
+import JobApplicants from './pages/JobApplicants';
 import Suggestions from './pages/Suggestions';
 import Support from './pages/Support';
 import Contact from './pages/Contact';
@@ -49,6 +50,7 @@ function AppContent() {
           <Route path="/tracker" element={user ? <Tracker /> : <Navigate to="/login" />} />
           <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
           <Route path="/hire" element={user ? <Hire /> : <Navigate to="/login" />} />
+          <Route path="/hire/job/:jobId/applicants" element={user ? <JobApplicants /> : <Navigate to="/login" />} />
           <Route path="/suggestions" element={user ? <Suggestions /> : <Navigate to="/login" />} />
           <Route path="/support" element={<Support />} />
           <Route path="/contact" element={<Contact />} />
