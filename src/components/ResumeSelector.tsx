@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Download, X, Plus, Folder } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { resumeService } from '../services/resumeService';
-import LoadingSpinner from './LoadingSpinner';
+import { FileText, Star, X, Eye, Download } from 'lucide-react';
 
 interface ResumeFile {
   id: string;
@@ -15,78 +12,72 @@ interface ResumeFile {
   url: string;
 }
 
-interface ResumeSelectorProps {
-  onSelect: (resumeId: string) => void;
-  onClose: () => void;
-  title?: string;
-  description?: string;
+interface ResumeFolder {
+  id: string;
+  name: string;
+  sortBy: 'name' | 'date' | 'size';
+  sortOrder: 'asc' | 'desc';
 }
 
-export default function ResumeSelector({ onSelect, onClose, title = 'Select a Resume', description = 'Choose the resume you want to use for this application.' }: ResumeSelectorProps) {
-  const { user } = useAuth();
+interface ResumeSelectorProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (resume: ResumeFile) => void;
+  jobTitle?: string;
+}
+
+export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: ResumeSelectorProps) {
+  const [folders, setFolders] = useState<ResumeFolder[]>([]);
   const [resumes, setResumes] = useState<ResumeFile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
-  const [showNewResumePrompt, setShowNewResumePrompt] = useState(false);
+  const [selectedFolder, setSelectedFolder] = useState('all');
+  const [selectedResume, setSelectedResume] = useState<ResumeFile | null>(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      loadResumes();
-    }
-  }, [user]);
-
-  const loadResumes = async () => {
-    setLoading(true);
-    try {
-      const data = await resumeService.getResumes(user!.id);
-      setResumes(data);
-      const defaultResume = data.find(r => r.isDefault);
-      if (defaultResume) {
-        setSelectedResumeId(defaultResume.id);
-      } else if (data.length > 0) {
-        setSelectedResumeId(data.id); // Select the first one if no default
+    if (isOpen) {
+      // Load data from localStorage
+      const savedFolders = localStorage.getItem('rushWorkingResumeFolders');
+      const savedResumes = localStorage.getItem('rushWorkingResumes');
+      
+      if (savedFolders) {
+        const foldersData = JSON.parse(savedFolders);
+        setFolders(foldersData);
+        setSelectedFolder('all');
       }
-    } catch (error) {
-      console.error('Error loading resumes for selector:', error);
-    } finally {
-      setLoading(false);
+      if (savedResumes) {
+        setResumes(JSON.parse(savedResumes));
+      }
     }
-  };
+  }, [isOpen]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const getFilteredAndSortedResumes = () => {
+    let filtered = selectedFolder === 'all' 
+      ? resumes 
+      : resumes.filter(resume => resume.folderId === selectedFolder);
 
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please select a PDF, DOC, or DOCX file');
-      return;
+    // Apply sorting based on folder settings
+    const currentFolder = folders.find(f => f.id === selectedFolder);
+    if (currentFolder) {
+      filtered.sort((a, b) => {
+        let comparison = 0;
+        
+        switch (currentFolder.sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'date':
+            comparison = new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+            break;
+          case 'size':
+            comparison = a.size - b.size;
+            break;
+        }
+        
+        return currentFolder.sortOrder === 'asc' ? comparison : -comparison;
+      });
     }
-    
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Resume must be smaller than 10MB');
-      return;
-    }
 
-    const resumeName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
-    const targetFolderId = 'uncategorized'; // Default to uncategorized for new uploads
-
-    const success = await resumeService.uploadResume(user.id, file, resumeName, targetFolderId);
-    
-    if (success) {
-      await loadResumes();
-      setShowNewResumePrompt(false);
-      alert('Resume uploaded successfully!');
-    } else {
-      alert('Failed to upload resume. Please try again.');
-    }
+    return filtered;
   };
 
   const formatFileSize = (bytes: number) => {
@@ -101,119 +92,220 @@ export default function ResumeSelector({ onSelect, onClose, title = 'Select a Re
     return new Date(dateString).toLocaleDateString();
   };
 
+  const filteredResumes = getFilteredAndSortedResumes();
+
+  if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full flex flex-col">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-            <p className="text-gray-600 text-sm">{description}</p>
+      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Select Resume</h2>
+              {jobTitle && (
+                <p className="text-gray-600 mt-1">Applying for: {jobTitle}</p>
+              )}
+            </div>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
-          >
-            ×
-          </button>
         </div>
 
-        <div className="flex-1 p-6 overflow-y-auto">
-          {loading ? (
-            <LoadingSpinner text="Loading resumes..." />
-          ) : resumes.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No resumes found</h3>
-              <p className="text-gray-600 mb-6">
-                Please upload a resume to proceed.
-              </p>
-              <label className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer inline-flex items-center">
-                <Plus className="h-5 w-5 mr-2" />
-                Upload New Resume
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
+        <div className="flex h-96">
+          {/* Folders Sidebar */}
+          <div className="w-1/3 border-r border-gray-200 p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Folders</h3>
+            <div className="space-y-2">
+              {folders.map((folder) => {
+                const folderResumeCount = folder.id === 'all' 
+                  ? resumes.length 
+                  : resumes.filter(r => r.folderId === folder.id).length;
+                
+                return (
+                  <button
+                    key={folder.id}
+                    onClick={() => setSelectedFolder(folder.id)}
+                    className={`w-full text-left p-3 rounded-lg transition-colors flex items-center justify-between ${
+                      selectedFolder === folder.id
+                        ? 'bg-blue-100 text-blue-600 font-medium'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    }`}
+                  >
+                    <div className="flex items-center">
+                      <span className="text-sm">{folder.name}</span>
+                    </div>
+                    <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                      {folderResumeCount}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
-          ) : (
-            <div className="space-y-4">
-              {resumes.map((resume) => (
-                <div
-                  key={resume.id}
-                  className={`border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow ${
-                    selectedResumeId === resume.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setSelectedResumeId(resume.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center flex-1">
-                      <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                        <FileText className="h-6 w-6 text-blue-600" />
+          </div>
+
+          {/* Resume List */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {filteredResumes.length > 0 ? (
+              <div className="space-y-3">
+                {filteredResumes.map((resume) => (
+                  <button
+                    key={resume.id}
+                    onClick={() => {
+                      setSelectedResume(resume);
+                      setShowConfirmation(true);
+                    }}
+                    className="w-full text-left border border-gray-200 rounded-lg p-4 hover:border-blue-500 hover:bg-blue-50 transition-all"
+                  >
+                    <div className="flex items-center">
+                      <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                        <FileText className="h-5 w-5 text-blue-600" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">{resume.name}</h3>
-                        <p className="text-gray-600 text-sm mb-1">{resume.fileName}</p>
-                        <div className="flex items-center text-xs text-gray-500 space-x-4">
+                        <div className="flex items-center mb-1">
+                          <h4 className="font-semibold text-gray-900 mr-2">{resume.name}</h4>
+                          {resume.isDefault && (
+                            <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs font-semibold flex items-center">
+                              <Star className="h-3 w-3 mr-1" />
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-gray-600 text-sm">{resume.fileName}</p>
+                        <div className="flex items-center text-xs text-gray-500 space-x-3 mt-1">
                           <span>{formatFileSize(resume.size)}</span>
                           <span>Uploaded {formatDate(resume.uploadDate)}</span>
                         </div>
                       </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // View resume functionality
+                            alert(`Viewing ${resume.name}...`);
+                          }}
+                          className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                          title="View resume"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Download resume functionality
+                            const link = document.createElement('a');
+                            link.href = '#';
+                            link.download = resume.fileName;
+                            
+                            const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}`;
+                            const blob = new Blob([mockContent], { type: 'text/plain' });
+                            const url = URL.createObjectURL(blob);
+                            
+                            link.href = url;
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(url);
+                            
+                            alert(`Downloading ${resume.fileName}...`);
+                          }}
+                          className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
+                          title="Download resume"
+                        >
+                          <Download className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      {resume.isDefault && (
-                        <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs font-semibold">
-                          Default
-                        </span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No resumes found</h3>
+                <p className="text-gray-600">
+                  {selectedFolder === 'all' ? 'Upload your first resume to get started' : 'This folder is empty'}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-gray-600">
+              Select a resume to use for this application
+            </p>
+            <button
+              onClick={onClose}
+              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && selectedResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Confirm Resume Selection</h3>
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                You're about to apply {jobTitle ? `for "${jobTitle}"` : ''} using:
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center">
+                  <div className="bg-blue-100 p-2 rounded-lg mr-3">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">{selectedResume.name}</h4>
+                    <p className="text-gray-600 text-sm">{selectedResume.fileName}</p>
+                    <div className="flex items-center text-xs text-gray-500 space-x-2 mt-1">
+                      <span>{formatFileSize(selectedResume.size)}</span>
+                      <span>•</span>
+                      <span>Uploaded {formatDate(selectedResume.uploadDate)}</span>
+                      {selectedResume.isDefault && (
+                        <>
+                          <span>•</span>
+                          <span className="text-green-600 font-medium">Default</span>
+                        </>
                       )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(resume.url, '_blank');
-                        }}
-                        className="bg-gray-100 text-gray-600 p-2 rounded-lg hover:bg-gray-200 transition-colors"
-                        title="View resume"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
                     </div>
                   </div>
                 </div>
-              ))}
-              <div className="text-center mt-6">
-                <label className="text-blue-600 hover:text-blue-700 transition-colors cursor-pointer inline-flex items-center">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Upload Another Resume
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
               </div>
             </div>
-          )}
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  onSelect(selectedResume);
+                  setShowConfirmation(false);
+                  setSelectedResume(null);
+                }}
+                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
+              >
+                Confirm & Apply
+              </button>
+              <button
+                onClick={() => {
+                  setShowConfirmation(false);
+                  setSelectedResume(null);
+                }}
+                className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div className="p-6 border-t border-gray-200 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => selectedResumeId && onSelect(selectedResumeId)}
-            disabled={!selectedResumeId || loading}
-            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Select Resume
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

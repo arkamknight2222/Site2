@@ -1,328 +1,219 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, Building, Calendar, Star, ArrowLeft, Send } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import React, { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, Zap } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
-import { resumeService } from '../services/resumeService';
-import { applicationService } from '../services/applicationService';
-import { pointsService } from '../services/pointsService';
+import { useAuth } from '../context/AuthContext';
 import ResumeSelector from '../components/ResumeSelector';
-import LoadingSpinner from '../components/LoadingSpinner';
-
-interface Resume {
-  id: string;
-  name: string;
-  fileName: string;
-  fileUrl: string;
-  isDefault: boolean;
-}
 
 export default function JobDetails() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { jobs } = useJobs();
-  const [job, setJob] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [applying, setApplying] = useState(false);
-  const [showResumeSelector, setShowResumeSelector] = useState(false);
-  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
-  const [resumes, setResumes] = useState<Resume[]>([]);
+  const { id } = useParams();
+  const { getJob, applyToJob } = useJobs();
+  const { user, updateUser } = useAuth();
+  const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [showResumeSelector, setShowResumeSelector] = useState(false);
+  const [selectedResume, setSelectedResume] = useState<any>(null);
 
-  useEffect(() => {
-    if (id && jobs.length > 0) {
-      const foundJob = jobs.find(j => j.id === id);
-      setJob(foundJob);
-      setLoading(false);
-    }
-  }, [id, jobs]);
-
-  useEffect(() => {
-    if (user) {
-      loadResumes();
-      checkApplicationStatus();
-    }
-  }, [user, id]);
-
-  const loadResumes = async () => {
-    if (!user) return;
-    
-    try {
-      const userResumes = await resumeService.getResumes(user.id);
-      const resumeData = userResumes.map(resume => ({
-        id: resume.id,
-        name: resume.name,
-        fileName: resume.fileName,
-        fileUrl: resume.url,
-        isDefault: resume.isDefault
-      }));
-      setResumes(resumeData);
-      
-      // Set default resume if available
-      const defaultResume = resumeData.find(r => r.isDefault);
-      if (defaultResume) {
-        setSelectedResume(defaultResume);
-      }
-    } catch (error) {
-      console.error('Error loading resumes:', error);
-    }
-  };
-
-  const checkApplicationStatus = async () => {
-    if (!user || !id) return;
-    
-    try {
-      const applications = await applicationService.getUserApplications(user.id);
-      const hasAppliedToJob = applications.some(app => app.jobId === id);
-      setHasApplied(hasAppliedToJob);
-    } catch (error) {
-      console.error('Error checking application status:', error);
-    }
-  };
-
-  const handleApply = async () => {
-    if (!user || !job || !selectedResume) return;
-
-    setApplying(true);
-    try {
-      const success = await applicationService.submitApplication({
-        jobId: job.id,
-        userId: user.id,
-        resumeId: selectedResume.id,
-        pointsUsed: job.minimumPoints || 0
-      });
-
-      if (success) {
-        // Deduct points if required
-        if (job.minimumPoints > 0) {
-          await pointsService.deductPoints(
-            user.id,
-            job.minimumPoints,
-            `Applied to ${job.title} at ${job.company}`,
-            'application',
-            job.id
-          );
-        }
-
-        setHasApplied(true);
-        alert('Application submitted successfully!');
-      } else {
-        alert('Failed to submit application. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error submitting application:', error);
-      alert('An error occurred while submitting your application.');
-    } finally {
-      setApplying(false);
-    }
-  };
-
-  const handleQuickApply = async () => {
-    if (!selectedResume) {
-      setShowResumeSelector(true);
-      return;
-    }
-    await handleApply();
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
+  const job = getJob(id || '');
 
   if (!job) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="text-center py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h2>
           <p className="text-gray-600 mb-6">The job you're looking for doesn't exist or has been removed.</p>
-          <button
-            onClick={() => navigate('/jobs')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          <Link
+            to="/jobs"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
           >
-            Back to Jobs
-          </button>
+            Browse Other Jobs
+          </Link>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back
-        </button>
+  const canAfford = !user || user.points >= job.minimumPoints;
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{job.title}</h1>
-                <div className="flex items-center text-gray-600 mb-4">
-                  <Building className="w-5 h-5 mr-2" />
-                  <span className="text-lg font-medium">{job.company}</span>
+  const handleQuickApply = async () => {
+    if (!user) {
+      return;
+    }
+
+    // Use default resume for quick apply
+    const savedResumes = localStorage.getItem('rushWorkingResumes');
+    if (savedResumes) {
+      const resumes = JSON.parse(savedResumes);
+      const defaultResume = resumes.find((r: any) => r.isDefault);
+      if (defaultResume) {
+        await submitApplication(defaultResume);
+      } else {
+        setShowResumeSelector(true);
+      }
+    } else {
+      alert('Please upload a resume first');
+    }
+  };
+
+  const handleSelectResume = () => {
+    if (!user) {
+      return;
+    }
+    setShowResumeSelector(true);
+  };
+
+  const submitApplication = async (resume: any) => {
+    setIsApplying(true);
+    
+    // Simulate API call
+    setTimeout(() => {
+      const success = applyToJob(job.id, user.id);
+      if (success) {
+        // Award 10 points for applying
+        const currentPoints = user.points || 0;
+        updateUser({ points: currentPoints + 10 });
+        setHasApplied(true);
+        alert(`Application submitted successfully with "${resume.name}"! You earned 10 points.`);
+      }
+      setIsApplying(false);
+      setShowResumeSelector(false);
+      setSelectedResume(null);
+    }, 1000);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <Link
+          to="/jobs"
+          className="inline-flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Jobs
+        </Link>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        {/* Header */}
+        <div className={`p-8 ${job.featured ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-200' : 'border-b border-gray-200'}`}>
+          <div className="flex flex-col md:flex-row md:items-start justify-between mb-6">
+            <div className="flex-1">
+              {/* Save Button */}
+              <div className="flex justify-end mb-4">
+                <button className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                  </svg>
+                </button>
+              </div>
+              <div className="flex items-center mb-3">
+                <h1 className="text-3xl font-bold text-gray-900 mr-3">{job.title}</h1>
+                {job.featured && (
+                  <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                    <Star className="h-4 w-4 mr-1" />
+                    Featured
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center mb-4">
+                <Building className="h-5 w-5 text-gray-500 mr-2" />
+                <span className="text-xl text-gray-700 font-medium">{job.company}</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="flex items-center text-gray-600">
+                  <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                  {job.location}
                 </div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {job.location}
+                <div className="flex items-center text-gray-600">
+                  <Clock className="h-4 w-4 mr-2 text-green-600" />
+                  {job.type.charAt(0).toUpperCase() + job.type.slice(1).replace('-', ' ')}
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <Users className="h-4 w-4 mr-2 text-purple-600" />
+                  {job.experienceLevel.charAt(0).toUpperCase() + job.experienceLevel.slice(1)} Level
+                </div>
+                <div className="flex items-center text-gray-600">
+                  <Calendar className="h-4 w-4 mr-2 text-orange-600" />
+                  Posted {new Date(job.postedDate).toLocaleDateString()}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 md:mt-0 md:ml-8 flex-shrink-0">
+              <div className="bg-white rounded-lg p-6 shadow-lg border">
+                <div className="text-center mb-4">
+                  <div className="text-2xl font-bold text-gray-900 mb-1">
+                    ${job.salary.min.toLocaleString()} - ${job.salary.max.toLocaleString()}
                   </div>
-                  <div className="flex items-center">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {job.type}
+                  <div className="text-gray-600">Annual Salary</div>
+                </div>
+                <div className="text-center mb-6">
+                  <div className="flex items-center justify-center mb-2">
+                    <Zap className={`h-5 w-5 mr-2 ${canAfford ? 'text-green-600' : 'text-red-600'}`} />
+                    <span className={`text-lg font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
+                      {job.minimumPoints} points
+                    </span>
                   </div>
-                  {job.salaryMin && job.salaryMax && (
-                    <div className="flex items-center">
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      ${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()}
+                  <div className="text-sm text-gray-600 text-center">Points Boost Minimum Spend Requirement</div>
+                  {user && !canAfford && (
+                    <div className="text-xs text-red-500 mt-1 text-center">
+                      You need {job.minimumPoints - user.points} more points
                     </div>
                   )}
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    Posted {new Date(job.createdAt).toLocaleDateString()}
-                  </div>
                 </div>
-              </div>
-              {job.featured && (
-                <div className="flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-                  <Star className="w-4 h-4 mr-1" />
-                  Featured
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Job Description */}
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-3">Job Description</h2>
-                  <div className="prose prose-gray max-w-none">
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{job.description}</p>
-                  </div>
-                </div>
-
-                {/* Requirements */}
-                {job.requirements && job.requirements.length > 0 && (
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-3">Requirements</h2>
-                    <ul className="space-y-2">
-                      {job.requirements.map((req: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                          <span className="text-gray-700">{req}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Job Details */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">Job Details</h3>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Experience Level:</span>
-                      <span className="ml-2 font-medium text-gray-900 capitalize">{job.experienceLevel}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Education Level:</span>
-                      <span className="ml-2 font-medium text-gray-900 capitalize">{job.educationLevel}</span>
-                    </div>
-                    {job.minimumPoints > 0 && (
-                      <div>
-                        <span className="text-gray-600">Points Required:</span>
-                        <span className="ml-2 font-medium text-gray-900">{job.minimumPoints}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Application Section */}
-                {user && (
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Apply for this Job</h3>
-                    
-                    {hasApplied ? (
-                      <div className="text-center py-4">
-                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <p className="text-green-800 font-medium">Application Submitted</p>
-                        <p className="text-green-600 text-sm mt-1">You have already applied to this job</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedResume && (
-                          <div className="text-sm">
-                            <span className="text-gray-600">Selected Resume:</span>
-                            <div className="mt-1 p-2 bg-white rounded border">
-                              <span className="font-medium text-gray-900">{selectedResume.name}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div className="space-y-2">
-                          <button
-                            onClick={handleQuickApply}
-                            disabled={applying || (job.minimumPoints > 0 && user.points < job.minimumPoints)}
-                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                          >
-                            {applying ? (
-                              <LoadingSpinner size="sm" />
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4 mr-2" />
-                                Quick Apply
-                              </>
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={() => setShowResumeSelector(true)}
-                            className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
-                          >
-                            Choose Different Resume
-                          </button>
-                        </div>
-
-                        {job.minimumPoints > 0 && user.points < job.minimumPoints && (
-                          <p className="text-red-600 text-sm">
-                            You need {job.minimumPoints - user.points} more points to apply for this job.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!user && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
-                    <p className="text-gray-600 mb-3">Sign in to apply for this job</p>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                {!user ? (
+                  <div className="space-y-3">
+                    <Link
+                      to="/login"
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all text-center block"
                     >
-                      Sign In
+                      Sign In to Apply
+                    </Link>
+                    <Link
+                      to="/register"
+                      className="w-full border-2 border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:border-blue-600 hover:text-blue-600 transition-all text-center block"
+                    >
+                      Create Account
+                    </Link>
+                  </div>
+                ) : hasApplied ? (
+                  <button
+                    disabled
+                    className="w-full bg-green-100 text-green-600 py-3 px-4 rounded-lg font-semibold cursor-not-allowed"
+                  >
+                    ✓ Applied Successfully
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleQuickApply}
+                      disabled={isApplying || !canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-green-600 to-blue-600 text-white hover:from-green-700 hover:to-blue-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {isApplying ? (
+                        <div className="flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Applying...
+                        </div>
+                      ) : canAfford ? (
+                        'Quick Apply'
+                      ) : (
+                        'Need More Points'
+                      )}
+                    </button>
+                    <button
+                      onClick={handleSelectResume}
+                      disabled={isApplying || !canAfford}
+                      className={`w-full py-3 px-4 rounded-lg font-semibold transition-all ${
+                        canAfford
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      {canAfford ? 'Apply with Resume' : 'Need More Points'}
                     </button>
                   </div>
                 )}
@@ -330,25 +221,92 @@ export default function JobDetails() {
             </div>
           </div>
         </div>
+
+        {/* Content */}
+        <div className="p-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              {/* Job Description */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Description</h2>
+                <div className="prose prose-gray max-w-none">
+                  <p className="text-gray-700 leading-relaxed">{job.description}</p>
+                </div>
+              </div>
+
+              {/* Requirements */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-4">Requirements</h2>
+                <ul className="space-y-3">
+                  {job.requirements.map((requirement, index) => (
+                    <li key={index} className="flex items-start">
+                      <div className="bg-blue-100 text-blue-600 rounded-full p-1 mr-3 mt-1">
+                        <div className="w-2 h-2 rounded-full bg-current"></div>
+                      </div>
+                      <span className="text-gray-700">{requirement}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {/* Job Info */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Job Information</h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-sm text-gray-500">Experience Level</div>
+                    <div className="font-medium text-gray-900 capitalize">{job.experienceLevel}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-500">Education Level</div>
+                    <div className="font-medium text-gray-900 capitalize">
+                      {job.educationLevel.replace('-', ' ')}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-500">Job Type</div>
+                    <div className="font-medium text-gray-900 capitalize">
+                      {job.type.replace('-', ' ')}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-gray-500">Posted Date</div>
+                    <div className="font-medium text-gray-900">
+                      {new Date(job.postedDate).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Share */}
+              <div className="bg-blue-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Share this job</h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Help others discover this opportunity
+                </p>
+                <div className="flex space-x-3">
+                  <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                    Share
+                  </button>
+                  <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                    Save
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Resume Selector Modal */}
-      {showResumeSelector && (
-        <ResumeSelector
-          isOpen={showResumeSelector}
-          onClose={() => setShowResumeSelector(false)}
-          onSelect={(resume) => {
-            setSelectedResume({
-              id: resume.id,
-              name: resume.name,
-              fileName: resume.fileName,
-              fileUrl: resume.url,
-              isDefault: resume.isDefault
-            });
-            setShowResumeSelector(false);
-          }}
-        />
-      )}
+      <ResumeSelector
+        isOpen={showResumeSelector}
+        onClose={() => setShowResumeSelector(false)}
+        onSelect={(resume) => submitApplication(resume)}
+        jobTitle={job.title}
+      />
     </div>
   );
 }
