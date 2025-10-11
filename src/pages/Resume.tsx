@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { resumeService } from '../services/resumeService';
-import LoadingSpinner from '../components/LoadingSpinner';
 
 interface ResumeFile {
   id: string;
@@ -13,6 +11,7 @@ interface ResumeFile {
   isDefault: boolean;
   folderId: string;
   url: string;
+  fileContent?: string; // Base64 content for viewing
 }
 
 interface ResumeFolder {
@@ -23,11 +22,31 @@ interface ResumeFolder {
 }
 
 export default function Resume() {
-  const { user } = useAuth();
-  const [folders, setFolders] = useState<ResumeFolder[]>([]);
-  const [resumes, setResumes] = useState<ResumeFile[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const { user, updateUser } = useAuth();
+  const [folders, setFolders] = useState<ResumeFolder[]>([
+  ]);
+  const [resumes, setResumes] = useState<ResumeFile[]>([
+    {
+      id: '1',
+      name: 'Software Developer Resume',
+      fileName: 'john_doe_developer.pdf',
+      size: 245760, // 240KB
+      uploadDate: '2025-01-08T10:30:00Z',
+      isDefault: true,
+      folderId: 'uncategorized',
+      url: 'uploads/resumes/john_doe_developer.pdf',
+    },
+    {
+      id: '2',
+      name: 'Marketing Specialist Resume',
+      fileName: 'john_doe_marketing.pdf',
+      size: 198432, // 194KB
+      uploadDate: '2025-01-05T14:20:00Z',
+      isDefault: false,
+      folderId: 'uncategorized',
+      url: 'uploads/resumes/john_doe_marketing.pdf',
+    },
+  ]);
   
   const [selectedFolder, setSelectedFolder] = useState('all');
   const [showNewFolderForm, setShowNewFolderForm] = useState(false);
@@ -42,127 +61,73 @@ export default function Resume() {
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
 
-  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
-    sortBy: 'date',
-    sortOrder: 'desc'
-  });
-
-  // Load data from Supabase
-  useEffect(() => {
-    if (user) {
-      loadData();
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    setLoading(true);
-    await Promise.all([loadResumes(), loadFolders()]);
-    setLoading(false);
-  };
-
-  const loadResumes = async () => {
-    if (!user) return;
-    
-    try {
-      const data = await resumeService.getResumes(user.id);
-      const formattedResumes: ResumeFile[] = data.map(resume => ({
-        id: resume.id,
-        name: resume.name,
-        fileName: resume.fileName,
-        size: resume.size,
-        uploadDate: resume.uploadDate,
-        isDefault: resume.isDefault,
-        folderId: resume.folderId,
-        url: resume.url,
-      }));
-      setResumes(formattedResumes);
-    } catch (error) {
-      console.error('Error loading resumes:', error);
-    }
-  };
-
-  const loadFolders = async () => {
-    if (!user) return;
-    
-    try {
-      const data = await resumeService.getFolders(user.id);
-      const formattedFolders: ResumeFolder[] = data.map(folder => ({
-        id: folder.id,
-        name: folder.name,
-        sortBy: folder.sortBy,
-        sortOrder: folder.sortOrder,
-      }));
-      setFolders(formattedFolders);
-    } catch (error) {
-      console.error('Error loading folders:', error);
-    }
-  };
-
-  const setDefaultResume = async (resumeId: string) => {
-    if (!user) return;
-    
-    const success = await resumeService.setDefaultResume(resumeId, user.id);
-    if (success) {
-      await loadResumes();
-      alert('Default resume updated successfully!');
-    } else {
-      alert('Failed to update default resume. Please try again.');
-    }
+  const setDefaultResume = (resumeId: string) => {
+    setResumes(prev => prev.map(resume => ({
+      ...resume,
+      isDefault: resume.id === resumeId
+    })));
+    alert('Default resume updated successfully!');
   };
 
   const viewResume = (resume: ResumeFile) => {
-    // Open the resume URL in a new tab for viewing
-    window.open(resume.url, '_blank');
+    setViewingResume(resume);
   };
 
   const downloadResume = (resume: ResumeFile) => {
-    // Create a download link
     const link = document.createElement('a');
-    link.href = resume.url;
+    link.href = '#'; // In real app, this would be the actual file URL
     link.download = resume.fileName;
-    link.target = '_blank';
+    
+    // Create a mock blob for demonstration
+    const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+    const blob = new Blob([mockContent], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    link.href = url;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    alert(`Downloading ${resume.fileName}...`);
   };
 
-  const handleConfirmDelete = async () => {
-    if (!itemToDelete || !user) return;
+  const handleConfirmDelete = () => {
+    if (!itemToDelete) return;
     
     if (itemToDelete.type === 'folder') {
-      const success = await resumeService.deleteFolder(itemToDelete.id);
-      if (success) {
-        await loadData();
-        
-        // If we're currently viewing the deleted folder, switch to all
-        if (selectedFolder === itemToDelete.id) {
-          setSelectedFolder('all');
-        }
-        
-        alert(`Folder "${itemToDelete.name}" deleted successfully!`);
-      } else {
-        alert('Failed to delete folder. Please try again.');
+      const folderResumes = resumes.filter(r => r.folderId === itemToDelete.id);
+      
+      if (folderResumes.length > 0) {
+        // Move all resumes to uncategorized
+        setResumes(prev => prev.map(resume => 
+          resume.folderId === itemToDelete.id 
+            ? { ...resume, folderId: 'uncategorized' }
+            : resume
+        ));
       }
+      
+      setFolders(prev => prev.filter(f => f.id !== itemToDelete.id));
+      
+      // If we're currently viewing the deleted folder, switch to all
+      if (selectedFolder === itemToDelete.id) {
+        setSelectedFolder('all');
+      }
+      
+      alert(`Folder "${itemToDelete.name}" deleted successfully!`);
     } else if (itemToDelete.type === 'resume') {
-      if (itemToDelete.id === 'bulk') {
-        // Handle bulk delete
-        const success = await resumeService.bulkDeleteResumes(selectedResumes, user.id);
-        if (success) {
-          await loadResumes();
-          clearSelection();
-          alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`);
-        } else {
-          alert('Failed to delete resumes. Please try again.');
-        }
-      } else {
-        const success = await resumeService.deleteResume(itemToDelete.id);
-        if (success) {
-          await loadResumes();
-          alert(`Resume "${itemToDelete.name}" deleted successfully!`);
-        } else {
-          alert('Failed to delete resume. Please try again.');
+      setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
+      
+      // If deleted resume was default, set another as default
+      const deletedResume = resumes.find(r => r.id === itemToDelete.id);
+      if (deletedResume?.isDefault) {
+        const remainingResumes = resumes.filter(r => r.id !== itemToDelete.id);
+        if (remainingResumes.length > 0) {
+          setDefaultResume(remainingResumes[0].id);
         }
       }
+      
+      alert(`Resume "${itemToDelete.name}" deleted successfully!`);
     }
     
     setShowDeleteConfirmation(false);
@@ -203,21 +168,18 @@ export default function Resume() {
     setShowDeleteConfirmation(true);
   };
 
-  const bulkMoveResumes = async (targetFolderId: string) => {
-    if (!user || selectedResumes.length === 0) return;
+  const bulkMoveResumes = (targetFolderId: string) => {
+    setResumes(prev => prev.map(resume => 
+      selectedResumes.includes(resume.id)
+        ? { ...resume, folderId: targetFolderId }
+        : resume
+    ));
     
-    const success = await resumeService.bulkMoveResumes(selectedResumes, targetFolderId);
-    if (success) {
-      await loadResumes();
-      
-      const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-      alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
-      
-      setShowBulkMoveModal(false);
-      clearSelection();
-    } else {
-      alert('Failed to move resumes. Please try again.');
-    }
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+    
+    setShowBulkMoveModal(false);
+    clearSelection();
   };
 
   const bulkDownloadResumes = () => {
@@ -226,7 +188,18 @@ export default function Resume() {
     selectedResumes.forEach(resumeId => {
       const resume = resumes.find(r => r.id === resumeId);
       if (resume) {
-        downloadResume(resume);
+        // Create a mock download for each resume
+        const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
+        const blob = new Blob([mockContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = resume.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
       }
     });
     
@@ -234,9 +207,36 @@ export default function Resume() {
     clearSelection();
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [allResumesSorting, setAllResumesSorting] = useState<{ sortBy: 'name' | 'date' | 'size'; sortOrder: 'asc' | 'desc' }>({
+    sortBy: 'date',
+    sortOrder: 'desc'
+  });
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('rushWorkingResumeFolders', JSON.stringify(folders));
+  }, [folders]);
+
+  useEffect(() => {
+    localStorage.setItem('rushWorkingResumes', JSON.stringify(resumes));
+  }, [resumes]);
+
+  // Load from localStorage on mount
+  useEffect(() => {
+    const savedFolders = localStorage.getItem('rushWorkingResumeFolders');
+    const savedResumes = localStorage.getItem('rushWorkingResumes');
+    
+    if (savedFolders) {
+      setFolders(JSON.parse(savedFolders));
+    }
+    if (savedResumes) {
+      setResumes(JSON.parse(savedResumes));
+    }
+  }, []);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file || !user) return;
+    if (!file) return;
 
     // Validate file type
     const allowedTypes = [
@@ -256,35 +256,35 @@ export default function Resume() {
       return;
     }
 
-    setUploading(true);
-    
-    const resumeName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
-    const targetFolderId = selectedFolder === 'all' ? 'uncategorized' : selectedFolder;
-    
-    const success = await resumeService.uploadResume(user.id, file, resumeName, targetFolderId);
-    
-    if (success) {
-      await loadResumes();
-      alert('Resume uploaded successfully!');
-    } else {
-      alert('Failed to upload resume. Please try again.');
-    }
-    
-    setUploading(false);
+    const newResume: ResumeFile = {
+      id: Date.now().toString(),
+      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+      fileName: file.name,
+      size: file.size,
+      uploadDate: new Date().toISOString(),
+      isDefault: resumes.length === 0, // First resume becomes default
+      folderId: selectedFolder === 'all' ? 'default' : selectedFolder,
+      url: `uploads/resumes/${Date.now()}_${file.name}`,
+      fileContent: '', // In real app, this would be the actual file content
+    };
+
+    setResumes(prev => [newResume, ...prev]);
+    alert('Resume uploaded successfully!');
   };
 
-  const createFolder = async () => {
-    if (!newFolderName.trim() || !user) return;
+  const createFolder = () => {
+    if (!newFolderName.trim()) return;
     
-    const folder = await resumeService.createFolder(user.id, newFolderName.trim());
-    if (folder) {
-      await loadFolders();
-      setNewFolderName('');
-      setShowNewFolderForm(false);
-      alert('Folder created successfully!');
-    } else {
-      alert('Failed to create folder. Please try again.');
-    }
+    const newFolder: ResumeFolder = {
+      id: Date.now().toString(),
+      name: newFolderName.trim(),
+      sortBy: 'date',
+      sortOrder: 'desc',
+    };
+    
+    setFolders(prev => [...prev, newFolder]);
+    setNewFolderName('');
+    setShowNewFolderForm(false);
   };
 
   const deleteFolder = (folderId: string) => {
@@ -324,20 +324,17 @@ export default function Resume() {
     }));
   };
 
-  const moveResumeToFolder = async (resumeId: string, targetFolderId: string) => {
-    if (!user) return;
+  const moveResumeToFolder = (resumeId: string, targetFolderId: string) => {
+    setResumes(prev => prev.map(resume => 
+      resume.id === resumeId 
+        ? { ...resume, folderId: targetFolderId }
+        : resume
+    ));
+    setShowMoveModal(false);
+    setResumeToMove(null);
     
-    const success = await resumeService.moveResume(resumeId, targetFolderId);
-    if (success) {
-      await loadResumes();
-      setShowMoveModal(false);
-      setResumeToMove(null);
-      
-      const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-      alert(`Resume moved to "${targetFolderName}" successfully!`);
-    } else {
-      alert('Failed to move resume. Please try again.');
-    }
+    const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
+    alert(`Resume moved to "${targetFolderName}" successfully!`);
   };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
@@ -411,14 +408,6 @@ export default function Resume() {
 
   const filteredResumes = getFilteredAndSortedResumes();
   const currentFolder = folders.find(f => f.id === selectedFolder);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner text="Loading your resumes..." />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -577,28 +566,23 @@ export default function Resume() {
                   </div>
                   
                   {/* Upload Button */}
-                  <label className={`px-4 py-2 rounded-lg font-semibold transition-all cursor-pointer flex items-center ${
-                    uploading 
-                      ? 'bg-gray-400 text-white cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
-                  }`}>
+                  <label className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all cursor-pointer flex items-center">
                     <Upload className="h-4 w-4 mr-2" />
-                    {uploading ? 'Uploading...' : 'Upload Resume'}
+                    Upload Resume
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx"
                       onChange={handleFileUpload}
                       className="hidden"
-                      disabled={uploading}
                     />
                   </label>
                 </div>
               </div>
 
               {/* Sort Controls */}
-              {(currentFolder || selectedFolder === 'all') && (
+              {(currentFolder || selectedFolder === 'all') && ( /* Ensure this div is always present for sorting */
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2"> {/* Group for sort controls */}
                     <span className="text-sm text-gray-600 mr-2">Sort by:</span>
                     <button
                       onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
@@ -640,49 +624,15 @@ export default function Resume() {
                       )}
                     </button>
                   </div>
-                  {/* Selection Mode Toggle */}
+                  {/* Quick Select Button */}
                   {isSelectionMode ? (
-                    <div className="flex items-center gap-2">
-                      {selectedResumes.length > 0 && (
-                        <>
-                          <button
-                            onClick={bulkDownloadResumes}
-                            className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors"
-                            title="Download Selected"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setShowBulkMoveModal(true)}
-                            className="p-2 rounded-lg bg-purple-100 text-purple-600 hover:bg-purple-200 transition-colors"
-                            title="Move Selected"
-                          >
-                            <FolderPlus className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={bulkDeleteResumes}
-                            className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                            title="Delete Selected"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={selectAllResumes}
-                        className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
-                        title="Select All"
-                      >
-                        <CheckSquare className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={clearSelection}
-                        className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                        title="Cancel Selection"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={clearSelection}
+                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                      title="Cancel Selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   ) : (
                     <button
                       onClick={() => setIsSelectionMode(true)}
@@ -704,14 +654,6 @@ export default function Resume() {
                     <div key={resume.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center flex-1">
-                          {isSelectionMode && (
-                            <input
-                              type="checkbox"
-                              checked={selectedResumes.includes(resume.id)}
-                              onChange={() => toggleResumeSelection(resume.id)}
-                              className="mr-4 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                            />
-                          )}
                           <div className="bg-blue-100 p-3 rounded-lg mr-4">
                             <FileText className="h-6 w-6 text-blue-600" />
                           </div>
@@ -732,52 +674,50 @@ export default function Resume() {
                             </div>
                           </div>
                         </div>
-                        {!isSelectionMode && (
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setDefaultResume(resume.id)}
-                              className={`p-2 rounded-lg transition-colors ${
-                                resume.isDefault
-                                  ? 'bg-green-100 text-green-600'
-                                  : 'bg-gray-100 text-gray-600 hover:bg-yellow-100 hover:text-yellow-600'
-                              }`}
-                              title={resume.isDefault ? 'Default resume' : 'Set as default'}
-                            >
-                              {resume.isDefault ? <Star className="h-4 w-4" /> : <StarOff className="h-4 w-4" />}
-                            </button>
-                            <button
-                              className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
-                              title="View resume"
-                              onClick={() => viewResume(resume)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
-                              title="Download resume"
-                              onClick={() => downloadResume(resume)}
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setResumeToMove(resume);
-                                setShowMoveModal(true);
-                              }}
-                              className="bg-purple-100 text-purple-600 p-2 rounded-lg hover:bg-purple-200 transition-colors"
-                              title="Move to folder"
-                            >
-                              <FolderPlus className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteResume(resume.id)}
-                              className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
-                              title="Delete resume"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        )}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setDefaultResume(resume.id)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              resume.isDefault
+                                ? 'bg-green-100 text-green-600'
+                                : 'bg-gray-100 text-gray-600 hover:bg-yellow-100 hover:text-yellow-600'
+                            }`}
+                            title={resume.isDefault ? 'Default resume' : 'Set as default'}
+                          >
+                            {resume.isDefault ? <Star className="h-4 w-4" /> : <StarOff className="h-4 w-4" />}
+                          </button>
+                          <button
+                            className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                            title="View resume"
+                            onClick={() => viewResume(resume)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
+                            title="Download resume"
+                            onClick={() => downloadResume(resume)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setResumeToMove(resume);
+                              setShowMoveModal(true);
+                            }}
+                            className="bg-purple-100 text-purple-600 p-2 rounded-lg hover:bg-purple-200 transition-colors"
+                            title="Move to folder"
+                          >
+                            <FolderPlus className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => deleteResume(resume.id)}
+                            className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                            title="Delete resume"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -791,19 +731,14 @@ export default function Resume() {
                   <p className="text-gray-600 mb-6">
                     {searchQuery ? 'Try adjusting your search terms' : 'Upload your first resume to get started'}
                   </p>
-                  <label className={`px-6 py-3 rounded-lg font-semibold transition-colors cursor-pointer inline-flex items-center ${
-                    uploading 
-                      ? 'bg-gray-400 text-white cursor-not-allowed' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}>
+                  <label className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer inline-flex items-center">
                     <Upload className="h-5 w-5 mr-2" />
-                    {uploading ? 'Uploading...' : 'Upload Resume'}
+                    Upload Resume
                     <input
                       type="file"
                       accept=".pdf,.doc,.docx"
                       onChange={handleFileUpload}
                       className="hidden"
-                      disabled={uploading}
                     />
                   </label>
                 </div>
@@ -812,6 +747,65 @@ export default function Resume() {
           </div>
         </div>
       </div>
+
+      {/* Resume Viewer Modal */}
+      {viewingResume && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full h-[80vh] flex flex-col">
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{viewingResume.name}</h2>
+                <p className="text-gray-600 text-sm">{viewingResume.fileName}</p>
+              </div>
+              <div className="flex items-center space-x-3">
+                <button
+                  onClick={() => downloadResume(viewingResume)}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download
+                </button>
+                <button
+                  onClick={() => setViewingResume(null)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 p-6 overflow-hidden">
+              <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <FileText className="h-24 w-24 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-700 mb-2">Resume Preview</h3>
+                  <p className="text-gray-600 mb-4">
+                    {viewingResume.fileName}
+                  </p>
+                  <div className="space-y-2 text-sm text-gray-500">
+                    <p>Size: {formatFileSize(viewingResume.size)}</p>
+                    <p>Uploaded: {formatDate(viewingResume.uploadDate)}</p>
+                    {viewingResume.isDefault && (
+                      <p className="text-green-600 font-medium">✓ Default Resume</p>
+                    )}
+                  </div>
+                  <div className="mt-6">
+                    <button
+                      onClick={() => downloadResume(viewingResume)}
+                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
+                    >
+                      <Download className="h-5 w-5 mr-2" />
+                      Download Resume
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-4">
+                    Note: In a production environment, this would show the actual PDF/document content
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Move Resume Modal */}
       {showMoveModal && resumeToMove && (
@@ -936,7 +930,32 @@ export default function Resume() {
                 Cancel
               </button>
               <button
-                onClick={handleConfirmDelete}
+                onClick={() => {
+                  if (itemToDelete.id === 'bulk') {
+                    // Handle bulk delete
+                    const hasDefault = selectedResumes.some(id => {
+                      const resume = resumes.find(r => r.id === id);
+                      return resume?.isDefault;
+                    });
+                    
+                    setResumes(prev => prev.filter(r => !selectedResumes.includes(r.id)));
+                    
+                    // If deleted resume was default, set another as default
+                    if (hasDefault) {
+                      const remainingResumes = resumes.filter(r => !selectedResumes.includes(r.id));
+                      if (remainingResumes.length > 0) {
+                        setDefaultResume(remainingResumes[0].id);
+                      }
+                    }
+                    
+                    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`);
+                    clearSelection();
+                  } else {
+                    handleConfirmDelete();
+                  }
+                  setShowDeleteConfirmation(false);
+                  setItemToDelete(null);
+                }}
                 className="flex-1 bg-red-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-red-700 transition-colors"
               >
                 Delete {itemToDelete.type === 'folder' ? 'Folder' : itemToDelete.id === 'bulk' ? 'Selected' : 'Resume'}
