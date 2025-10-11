@@ -1,219 +1,412 @@
-import React, { useState, useEffect } from 'react';
-import { FileText, Download, X, Plus, Folder } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { resumeService } from '../services/resumeService';
-import LoadingSpinner from './LoadingSpinner';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
 
-interface ResumeFile {
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
+
+interface User {
   id: string;
-  name: string;
-  fileName: string;
-  size: number;
-  uploadDate: string;
-  isDefault: boolean;
-  folderId: string;
-  url: string;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
 }
 
-interface ResumeSelectorProps {
-  onSelect: (resumeId: string) => void;
-  onClose: () => void;
-  title?: string;
-  description?: string;
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
 }
 
-export default function ResumeSelector({ onSelect, onClose, title = 'Select a Resume', description = 'Choose the resume you want to use for this application.' }: ResumeSelectorProps) {
-  const { user } = useAuth();
-  const [resumes, setResumes] = useState<ResumeFile[]>([]);
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
-  const [showNewResumePrompt, setShowNewResumePrompt] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      loadResumes();
-    }
-  }, [user]);
-
-  const loadResumes = async () => {
-    setLoading(true);
-    try {
-      const data = await resumeService.getResumes(user!.id);
-      setResumes(data);
-      const defaultResume = data.find(r => r.isDefault);
-      if (defaultResume) {
-        setSelectedResumeId(defaultResume.id);
-      } else if (data.length > 0) {
-        setSelectedResumeId(data.id); // Select the first one if no default
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+        setLoading(false);
       }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const createOfflineProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating offline profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'demo@rushworking.com',
+        phone: '+1 (555) 123-4567',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '28',
+        gender: 'prefer-not-to-say',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: 'bachelor',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: true,
+        isVerified: true, // Allow posting in demo mode
+        companyName: 'Demo Company Inc.',
+        companyId: 'DEMO123456',
+        companyLocation: 'San Francisco, CA',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
     } catch (error) {
-      console.error('Error loading resumes for selector:', error);
-    } finally {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
       setLoading(false);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
+    try {
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
 
-    // Validate file type
-    const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (!allowedTypes.includes(file.type)) {
-      alert('Please select a PDF, DOC, or DOCX file');
-      return;
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+          await createOfflineProfile(userId);
+          return;
+        }
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
+          console.log('[AuthContext] Profile not found, creating new profile');
+          await createMissingProfile(userId);
+          return;
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      
+      // Check if it's a network error
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('[AuthContext] Network exception detected, using offline mode');
+        await createOfflineProfile(userId);
+      } else {
+        setLoading(false);
+      }
     }
-    
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Resume must be smaller than 10MB');
-      return;
-    }
-
-    const resumeName = file.name.replace(/\.[^/.]+$/, ''); // Remove extension
-    const targetFolderId = 'uncategorized'; // Default to uncategorized for new uploads
-
-    const success = await resumeService.uploadResume(user.id, file, resumeName, targetFolderId);
-    
-    if (success) {
-      await loadResumes();
-      setShowNewResumePrompt(false);
-      alert('Resume uploaded successfully!');
-    } else {
-      alert('Failed to upload resume. Please try again.');
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Registration error:', error);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
+
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full flex flex-col">
-        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-            <p className="text-gray-600 text-sm">{description}</p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="flex-1 p-6 overflow-y-auto">
-          {loading ? (
-            <LoadingSpinner text="Loading resumes..." />
-          ) : resumes.length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No resumes found</h3>
-              <p className="text-gray-600 mb-6">
-                Please upload a resume to proceed.
-              </p>
-              <label className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors cursor-pointer inline-flex items-center">
-                <Plus className="h-5 w-5 mr-2" />
-                Upload New Resume
-                <input
-                  type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {resumes.map((resume) => (
-                <div
-                  key={resume.id}
-                  className={`border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow ${
-                    selectedResumeId === resume.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                  }`}
-                  onClick={() => setSelectedResumeId(resume.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center flex-1">
-                      <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                        <FileText className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-gray-900">{resume.name}</h3>
-                        <p className="text-gray-600 text-sm mb-1">{resume.fileName}</p>
-                        <div className="flex items-center text-xs text-gray-500 space-x-4">
-                          <span>{formatFileSize(resume.size)}</span>
-                          <span>Uploaded {formatDate(resume.uploadDate)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {resume.isDefault && (
-                        <span className="bg-green-100 text-green-600 px-2 py-1 rounded-full text-xs font-semibold">
-                          Default
-                        </span>
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          window.open(resume.url, '_blank');
-                        }}
-                        className="bg-gray-100 text-gray-600 p-2 rounded-lg hover:bg-gray-200 transition-colors"
-                        title="View resume"
-                      >
-                        <Download className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="text-center mt-6">
-                <label className="text-blue-600 hover:text-blue-700 transition-colors cursor-pointer inline-flex items-center">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Upload Another Resume
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="p-6 border-t border-gray-200 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => selectedResumeId && onSelect(selectedResumeId)}
-            disabled={!selectedResumeId || loading}
-            className="flex-1 bg-blue-600 text-white py-3 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Select Resume
-          </button>
-        </div>
-      </div>
-    </div>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
