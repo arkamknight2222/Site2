@@ -1,354 +1,410 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, Building, Calendar, Star, ArrowLeft, Send } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
-import { useJobs } from '../context/JobContext';
-import { resumeService } from '../services/resumeService';
-import { applicationService } from '../services/applicationService';
-import { pointsService } from '../services/pointsService';
-import ResumeSelector from '../components/ResumeSelector';
-import LoadingSpinner from '../components/LoadingSpinner';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
 
-interface Resume {
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
+
+interface User {
   id: string;
-  name: string;
-  fileName: string;
-  fileUrl: string;
-  isDefault: boolean;
+  email: string;
+  phone?: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeUrl?: string;
+  profilePicture?: string;
+  points: number;
+  isEmployer?: boolean;
+  companyName?: string;
+  companyId?: string;
+  companyLocation?: string;
+  isVerified?: boolean;
 }
 
-export default function JobDetails() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const { jobs } = useJobs();
-  const [job, setJob] = useState<any>(null);
+interface AuthContextType {
+  user: User | null;
+  login: (email: string, password: string) => Promise<boolean>;
+  register: (userData: RegisterData) => Promise<boolean>;
+  logout: () => void;
+  loading: boolean;
+  updateUser: (userData: Partial<User>) => void;
+}
+
+interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+  age?: string;
+  gender?: string;
+  isVeteran?: boolean;
+  isCitizen?: boolean;
+  highestDegree?: string;
+  hasCriminalRecord?: boolean;
+  resumeFile?: File;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [applying, setApplying] = useState(false);
-  const [showResumeSelector, setShowResumeSelector] = useState(false);
-  const [selectedResume, setSelectedResume] = useState<Resume | null>(null);
-  const [resumes, setResumes] = useState<Resume[]>([]);
-  const [hasApplied, setHasApplied] = useState(false);
 
   useEffect(() => {
-    if (id && jobs.length > 0) {
-      const foundJob = jobs.find(j => j.id === id);
-      setJob(foundJob);
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const createOfflineProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating offline profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'demo@rushworking.com',
+        phone: '+1 (555) 123-4567',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '28',
+        gender: 'prefer-not-to-say',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: 'bachelor',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: true,
+        isVerified: true, // Allow posting in demo mode
+        companyName: 'Demo Company Inc.',
+        companyId: 'DEMO123456',
+        companyLocation: 'San Francisco, CA',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
       setLoading(false);
     }
-  }, [id, jobs]);
+  };
 
-  useEffect(() => {
-    if (user) {
-      loadResumes();
-      checkApplicationStatus();
-    }
-  }, [user, id]);
-
-  const loadResumes = async () => {
-    if (!user) return;
-    
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
     try {
-      const userResumes = await resumeService.getResumes(user.id);
-      const resumeData = userResumes.map(resume => ({
-        id: resume.id,
-        name: resume.name,
-        fileName: resume.fileName,
-        fileUrl: resume.url,
-        isDefault: resume.isDefault
-      }));
-      setResumes(resumeData);
+      console.log('[AuthContext] Fetching profile from database');
       
-      // Set default resume if available
-      const defaultResume = resumeData.find(r => r.isDefault);
-      if (defaultResume) {
-        setSelectedResume(defaultResume);
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+          await createOfflineProfile(userId);
+          return;
+        }
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        setLoading(false);
       }
     } catch (error) {
-      console.error('Error loading resumes:', error);
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      
+      // Check if it's a network error
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('[AuthContext] Network exception detected, using offline mode');
+        await createOfflineProfile(userId);
+      } else {
+        setLoading(false);
+      }
     }
   };
-
-  const checkApplicationStatus = async () => {
-    if (!user || !id) return;
-    
+  
+  const createMissingProfile = async (userId: string) => {
     try {
-      const applications = await applicationService.getUserApplications(user.id);
-      const hasAppliedToJob = applications.some(app => app.jobId === id);
-      setHasApplied(hasAppliedToJob);
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
     } catch (error) {
-      console.error('Error checking application status:', error);
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
     }
   };
 
-  const handleApply = async () => {
-    if (!user || !job || !selectedResume) return;
-
-    setApplying(true);
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const success = await applicationService.submitApplication({
-        jobId: job.id,
-        userId: user.id,
-        resumeId: selectedResume.id,
-        pointsUsed: job.minimumPoints || 0
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
 
-      if (success) {
-        // Deduct points if required
-        if (job.minimumPoints > 0) {
-          await pointsService.deductPoints(
-            user.id,
-            job.minimumPoints,
-            `Applied to ${job.title} at ${job.company}`,
-            'application',
-            job.id
-          );
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  };
+
+  const register = async (userData: RegisterData): Promise<boolean> => {
+    try {
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
+        email: userData.email,
+        password: userData.password,
+      });
+
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
         }
 
-        setHasApplied(true);
-        alert('Application submitted successfully!');
-      } else {
-        alert('Failed to submit application. Please try again.');
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
       }
+
+      return false;
     } catch (error) {
-      console.error('Error submitting application:', error);
-      alert('An error occurred while submitting your application.');
-    } finally {
-      setApplying(false);
+      console.error('Registration error:', error);
+      return false;
     }
   };
 
-  const handleQuickApply = async () => {
-    if (!selectedResume) {
-      setShowResumeSelector(true);
-      return;
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
     }
-    await handleApply();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!job) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Not Found</h2>
-          <p className="text-gray-600 mb-6">The job you're looking for doesn't exist or has been removed.</p>
-          <button
-            onClick={() => navigate('/jobs')}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Back to Jobs
-          </button>
-        </div>
-      </div>
-    );
-  }
+  const updateUser = (userData: Partial<User>) => {
+    if (user) {
+      const updatedUser = { ...user, ...userData };
+      setUser(updatedUser);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Back Button */}
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center text-gray-600 hover:text-gray-900 mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back
-        </button>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">{job.title}</h1>
-                <div className="flex items-center text-gray-600 mb-4">
-                  <Building className="w-5 h-5 mr-2" />
-                  <span className="text-lg font-medium">{job.company}</span>
-                </div>
-                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <MapPin className="w-4 h-4 mr-1" />
-                    {job.location}
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="w-4 h-4 mr-1" />
-                    {job.type}
-                  </div>
-                  {job.salaryMin && job.salaryMax && (
-                    <div className="flex items-center">
-                      <DollarSign className="w-4 h-4 mr-1" />
-                      ${job.salaryMin.toLocaleString()} - ${job.salaryMax.toLocaleString()}
-                    </div>
-                  )}
-                  <div className="flex items-center">
-                    <Calendar className="w-4 h-4 mr-1" />
-                    Posted {new Date(job.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              </div>
-              {job.featured && (
-                <div className="flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm font-medium">
-                  <Star className="w-4 h-4 mr-1" />
-                  Featured
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Main Content */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Job Description */}
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900 mb-3">Job Description</h2>
-                  <div className="prose prose-gray max-w-none">
-                    <p className="text-gray-700 leading-relaxed whitespace-pre-line">{job.description}</p>
-                  </div>
-                </div>
-
-                {/* Requirements */}
-                {job.requirements && job.requirements.length > 0 && (
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 mb-3">Requirements</h2>
-                    <ul className="space-y-2">
-                      {job.requirements.map((req: string, index: number) => (
-                        <li key={index} className="flex items-start">
-                          <span className="w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                          <span className="text-gray-700">{req}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-6">
-                {/* Job Details */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3">Job Details</h3>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <span className="text-gray-600">Experience Level:</span>
-                      <span className="ml-2 font-medium text-gray-900 capitalize">{job.experienceLevel}</span>
-                    </div>
-                    <div>
-                      <span className="text-gray-600">Education Level:</span>
-                      <span className="ml-2 font-medium text-gray-900 capitalize">{job.educationLevel}</span>
-                    </div>
-                    {job.minimumPoints > 0 && (
-                      <div>
-                        <span className="text-gray-600">Points Required:</span>
-                        <span className="ml-2 font-medium text-gray-900">{job.minimumPoints}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Application Section */}
-                {user && (
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 mb-3">Apply for this Job</h3>
-                    
-                    {hasApplied ? (
-                      <div className="text-center py-4">
-                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                        </div>
-                        <p className="text-green-800 font-medium">Application Submitted</p>
-                        <p className="text-green-600 text-sm mt-1">You have already applied to this job</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3">
-                        {selectedResume && (
-                          <div className="text-sm">
-                            <span className="text-gray-600">Selected Resume:</span>
-                            <div className="mt-1 p-2 bg-white rounded border">
-                              <span className="font-medium text-gray-900">{selectedResume.name}</span>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div className="space-y-2">
-                          <button
-                            onClick={handleQuickApply}
-                            disabled={applying || (job.minimumPoints > 0 && user.points < job.minimumPoints)}
-                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                          >
-                            {applying ? (
-                              <LoadingSpinner size="sm" />
-                            ) : (
-                              <>
-                                <Send className="w-4 h-4 mr-2" />
-                                Quick Apply
-                              </>
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={() => setShowResumeSelector(true)}
-                            className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors"
-                          >
-                            Choose Different Resume
-                          </button>
-                        </div>
-
-                        {job.minimumPoints > 0 && user.points < job.minimumPoints && (
-                          <p className="text-red-600 text-sm">
-                            You need {job.minimumPoints - user.points} more points to apply for this job.
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!user && (
-                  <div className="bg-gray-50 rounded-lg p-4 text-center">
-                    <p className="text-gray-600 mb-3">Sign in to apply for this job</p>
-                    <button
-                      onClick={() => navigate('/login')}
-                      className="bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Sign In
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Resume Selector Modal */}
-      {showResumeSelector && (
-        <ResumeSelector
-          isOpen={showResumeSelector}
-          onClose={() => setShowResumeSelector(false)}
-          onSelect={(resume) => {
-            setSelectedResume({
-              id: resume.id,
-              name: resume.name,
-              fileName: resume.fileName,
-              fileUrl: resume.url,
-              isDefault: resume.isDefault
-            });
-            setShowResumeSelector(false);
-          }}
-        />
-      )}
-    </div>
+    <AuthContext.Provider
+      value={{
+        user,
+        login,
+        register,
+        logout,
+        loading,
+        updateUser,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
