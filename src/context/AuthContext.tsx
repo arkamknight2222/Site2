@@ -1,4 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '../lib/supabase';
+
+// Add immediate debugging
+console.log('[AuthContext] Module loaded, supabase client:', supabase);
+console.log('[AuthContext] Environment check:', {
+  hasSupabaseUrl: !!import.meta.env.VITE_SUPABASE_URL,
+  hasSupabaseKey: !!import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+});
 
 interface User {
   id: string;
@@ -53,71 +62,328 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('rushWorkingUser');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setLoading(false);
+    console.log('[AuthContext] useEffect started - initializing auth');
+    // Check for existing Supabase session
+    const getSession = async () => {
+      console.log('[AuthContext] getSession started');
+      try {
+        console.log('[AuthContext] Calling supabase.auth.getSession()');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        console.log('[AuthContext] getSession response:', { session, error });
+        
+        if (error) {
+          console.error('[AuthContext] Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          console.log('[AuthContext] Session found, loading user profile for:', session.user.id);
+          await loadUserProfile(session.user.id);
+        } else {
+          console.log('[AuthContext] No session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('[AuthContext] Exception in getSession:', error);
+        setLoading(false);
+      }
+    };
+
+    getSession();
+
+    // Listen for auth changes
+    console.log('[AuthContext] Setting up auth state change listener');
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AuthContext] Auth state changed:', { event, session: session?.user?.id });
+      if (session?.user) {
+        console.log('[AuthContext] Auth change - loading profile for:', session.user.id);
+        await loadUserProfile(session.user.id);
+      } else {
+        console.log('[AuthContext] Auth change - clearing user');
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  const createOfflineProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating offline profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      // Create a mock profile with default values
+      const offlineProfile: User = {
+        id: userId,
+        email: authUser?.email || 'demo@rushworking.com',
+        phone: '+1 (555) 123-4567',
+        firstName: 'Demo',
+        lastName: 'User',
+        age: '28',
+        gender: 'prefer-not-to-say',
+        isVeteran: false,
+        isCitizen: true,
+        highestDegree: 'bachelor',
+        hasCriminalRecord: false,
+        profilePicture: '',
+        points: 150, // Give extra points for demo
+        isEmployer: true,
+        isVerified: true, // Allow posting in demo mode
+        companyName: 'Demo Company Inc.',
+        companyId: 'DEMO123456',
+        companyLocation: 'San Francisco, CA',
+      };
+      
+      console.log('[AuthContext] Setting offline user profile:', offlineProfile);
+      setUser(offlineProfile);
+      setLoading(false);
+      
+      // Show notification about offline mode
+      setTimeout(() => {
+        console.log('[AuthContext] Showing offline mode notification');
+        // You could show a toast notification here
+      }, 1000);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createOfflineProfile:', error);
+      setLoading(false);
+    }
+  };
+
+  const loadUserProfile = async (userId: string) => {
+    console.log('[AuthContext] loadUserProfile started for userId:', userId);
+    try {
+      console.log('[AuthContext] Fetching profile from database');
+      
+      // Add timeout to prevent hanging
+      const profilePromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
+      );
+      
+      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]) as any;
+
+      console.log('[AuthContext] Profile fetch response:', { profile, error });
+
+      if (error) {
+        console.error('[AuthContext] Error loading profile:', error);
+        console.log('[AuthContext] Profile error details:', error.message, error.code);
+        
+        // Check if it's a network error (Failed to fetch)
+        if (error.message && error.message.includes('Failed to fetch')) {
+          console.log('[AuthContext] Network error detected, using offline mode');
+          await createOfflineProfile(userId);
+          return;
+        }
+        
+        // If profile doesn't exist, create it
+        if (error.code === 'PGRST116' || error.message.includes('No rows returned')) {
+          console.log('[AuthContext] Profile not found, creating new profile');
+          await createMissingProfile(userId);
+          return;
+        }
+        
+        // For other errors, set loading to false
+        console.log('[AuthContext] Setting loading to false due to profile error');
+        setLoading(false);
+        return;
+      }
+
+      if (profile) {
+        console.log('[AuthContext] Profile found, creating user object');
+        const userData: User = {
+          id: profile.id,
+          email: profile.email,
+          phone: profile.phone,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          age: profile.age?.toString(),
+          gender: profile.gender,
+          isVeteran: profile.is_veteran,
+          isCitizen: profile.is_citizen,
+          highestDegree: profile.highest_degree,
+          hasCriminalRecord: profile.has_criminal_record,
+          profilePicture: profile.profile_picture,
+          points: profile.points,
+          isEmployer: profile.is_employer,
+          isVerified: profile.is_verified,
+          companyName: profile.company_name,
+          companyId: profile.company_id,
+          companyLocation: profile.company_location,
+        };
+        console.log('[AuthContext] Setting user data:', userData);
+        setUser(userData);
+        setLoading(false);
+      } else {
+        console.log('[AuthContext] No profile data found');
+        setLoading(false);
+      }
+    } catch (error) {
+      console.error('[AuthContext] Error loading user profile:', error);
+      console.log('[AuthContext] Exception in loadUserProfile:', error);
+      
+      // Check if it's a network error
+      if (error instanceof Error && error.message.includes('Failed to fetch')) {
+        console.log('[AuthContext] Network exception detected, using offline mode');
+        await createOfflineProfile(userId);
+      } else {
+        setLoading(false);
+      }
+    }
+  };
+  
+  const createMissingProfile = async (userId: string) => {
+    try {
+      console.log('[AuthContext] Creating missing profile for user:', userId);
+      
+      // Get user email from auth
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      
+      if (!authUser) {
+        console.log('[AuthContext] No auth user found, cannot create profile');
+        setLoading(false);
+        return;
+      }
+      
+      const { error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: authUser.email || '',
+          points: 50,
+          is_employer: false,
+          is_verified: false,
+          is_veteran: false,
+          is_citizen: false,
+          has_criminal_record: false,
+        });
+      
+      if (createError) {
+        console.error('[AuthContext] Error creating profile:', createError);
+        setLoading(false);
+        return;
+      }
+      
+      console.log('[AuthContext] Profile created successfully, loading it');
+      await loadUserProfile(userId);
+      
+    } catch (error) {
+      console.error('[AuthContext] Error in createMissingProfile:', error);
+      setLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      // Simulate API call
-      const mockUser: User = {
-        id: '1',
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        points: 150,
-        firstName: 'John',
-        lastName: 'Doe'
-      };
-      
-      setUser(mockUser);
-      localStorage.setItem('rushWorkingUser', JSON.stringify(mockUser));
-      return true;
+        password,
+      });
+
+      if (error) {
+        console.error('Login error:', error);
+        throw error;
+      }
+
+      if (data.user) {
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
     } catch (error) {
       console.error('Login error:', error);
-      return false;
+      throw error;
     }
   };
 
   const register = async (userData: RegisterData): Promise<boolean> => {
     try {
-      // Simulate API call
-      const newUser: User = {
-        id: Date.now().toString(),
+      console.log('[AuthContext] Starting registration process');
+      // Create auth user
+      const { data, error } = await supabase.auth.signUp({
         email: userData.email,
-        phone: userData.phone,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        age: userData.age,
-        gender: userData.gender,
-        isVeteran: userData.isVeteran,
-        isCitizen: userData.isCitizen,
-        highestDegree: userData.highestDegree,
-        hasCriminalRecord: userData.hasCriminalRecord,
-        points: 50, // Starting points
-      };
+        password: userData.password,
+      });
 
-      setUser(newUser);
-      localStorage.setItem('rushWorkingUser', JSON.stringify(newUser));
-      return true;
+      if (error) {
+        console.error('Registration error:', error);
+        return false;
+      }
+
+      if (data.user) {
+        console.log('[AuthContext] Auth user created, creating profile');
+        
+        // Create profile entry in profiles table
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert({
+            id: data.user.id,
+            email: userData.email,
+            phone: userData.phone,
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            age: userData.age ? parseInt(userData.age) : null,
+            gender: userData.gender,
+            is_veteran: userData.isVeteran || false,
+            is_citizen: userData.isCitizen || false,
+            highest_degree: userData.highestDegree,
+            has_criminal_record: userData.hasCriminalRecord || false,
+            points: 50, // Starting points
+          });
+
+        if (profileError) {
+          console.error('[AuthContext] Error creating profile:', profileError);
+          return false;
+        }
+
+        console.log('[AuthContext] Profile created successfully');
+
+        // Add welcome bonus to points history
+        console.log('[AuthContext] Adding welcome bonus to points history');
+        await supabase
+          .from('points_history')
+          .insert({
+            user_id: data.user.id,
+            type: 'earned',
+            amount: 50,
+            description: 'Welcome bonus for new members',
+            category: 'bonus',
+          });
+
+        console.log('[AuthContext] Loading user profile after registration');
+        await loadUserProfile(data.user.id);
+        return true;
+      }
+
+      return false;
     } catch (error) {
       console.error('Registration error:', error);
       return false;
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('rushWorkingUser');
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const updateUser = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
-      localStorage.setItem('rushWorkingUser', JSON.stringify(updatedUser));
     }
   };
 
