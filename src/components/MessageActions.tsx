@@ -8,6 +8,7 @@ interface MessageActionsProps {
   onCopy: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  isLastMessage?: boolean;
 }
 
 export default function MessageActions({
@@ -16,7 +17,8 @@ export default function MessageActions({
   isOwnMessage,
   onCopy,
   onEdit,
-  onDelete
+  onDelete,
+  isLastMessage = false
 }: MessageActionsProps) {
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -63,7 +65,7 @@ export default function MessageActions({
       </button>
 
       {showMenu && (
-        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] py-1">
+        <div className={`absolute right-0 ${isLastMessage ? 'bottom-full mb-1' : 'top-full mt-1'} bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px] py-1`}>
           <button
             onClick={handleCopy}
             className="w-full flex items-center px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"

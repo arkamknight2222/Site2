@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   onCopy: (content: string) => void;
   onEdit: (messageId: string, newContent: string) => void;
   onDelete: (messageId: string) => void;
+  isLastMessage?: boolean;
 }
 
 export default function MessageBubble({
@@ -18,7 +19,8 @@ export default function MessageBubble({
   senderName,
   onCopy,
   onEdit,
-  onDelete
+  onDelete,
+  isLastMessage = false
 }: MessageBubbleProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(message.content);
@@ -106,6 +108,7 @@ export default function MessageBubble({
               onCopy={handleCopy}
               onEdit={handleEdit}
               onDelete={handleDelete}
+              isLastMessage={isLastMessage}
             />
           )}
         </div>

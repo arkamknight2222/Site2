@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square, Clock, ArrowRight } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
@@ -1040,11 +1040,29 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const isScrolledToBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 50;
+  };
 
   useEffect(() => {
     loadMessages();
     markMessagesAsViewed(jobId, applicant.id, 'employer');
   }, [jobId, applicant.id]);
+
+  useEffect(() => {
+    if (messages.length > 0 && !loading) {
+      scrollToBottom();
+    }
+  }, [loading]);
 
   const loadMessages = async () => {
     setLoading(true);
@@ -1054,8 +1072,13 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
   };
 
   const handleSend = async () => {
+    const wasScrolledToBottom = isScrolledToBottom();
     await onSend();
     await loadMessages();
+
+    if (wasScrolledToBottom) {
+      setTimeout(scrollToBottom, 100);
+    }
   };
 
   const handleCopy = (content: string) => {
@@ -1098,7 +1121,7 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 bg-gray-50">
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
@@ -1106,7 +1129,7 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
             </div>
           ) : messages.length > 0 ? (
             <div className="space-y-4">
-              {messages.map((message) => (
+              {messages.map((message, index) => (
                 <MessageBubble
                   key={message.id}
                   message={message}
@@ -1115,8 +1138,10 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
                   onCopy={handleCopy}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
+                  isLastMessage={index === messages.length - 1}
                 />
               ))}
+              <div ref={messagesEndRef} />
             </div>
           ) : (
             <div className="text-center py-8">
