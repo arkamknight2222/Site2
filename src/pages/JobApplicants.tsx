@@ -722,8 +722,8 @@ function DetailsModal({ applicant, onClose, onViewResume, onMessage, onStatusCha
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+        <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-900">Applicant Details</h2>
           <button
             onClick={onClose}
@@ -733,7 +733,7 @@ function DetailsModal({ applicant, onClose, onViewResume, onMessage, onStatusCha
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6 overflow-y-auto flex-1">
           <div className="flex items-center space-x-4">
             <div className="p-4 bg-blue-100 rounded-full">
               <User className="h-8 w-8 text-blue-600" />
@@ -762,7 +762,7 @@ function DetailsModal({ applicant, onClose, onViewResume, onMessage, onStatusCha
                 {STATUS_CONFIG[applicant.applicationStatus].description}
               </p>
               {showStatusDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                   {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(status => (
                     <button
                       key={status}
