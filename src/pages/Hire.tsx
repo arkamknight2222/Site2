@@ -5,6 +5,8 @@ import { Search } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
+import { getApplicationsForJob } from '../lib/localStorage';
+import { ApplicationStatus, STATUS_CONFIG } from '../lib/types';
 
 export default function Hire() {
   const navigate = useNavigate();
@@ -17,7 +19,12 @@ export default function Hire() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
-  
+  const [jobStats, setJobStats] = useState<Record<string, {
+    total: number;
+    reviewed: number;
+    statusCounts: Record<ApplicationStatus, number>;
+  }>>({});
+
   // Mock verified companies - in real app this would come from user profile
   const verifiedCompanies = [
     { id: '1', name: 'TechCorp Inc.', address: '123 Tech Street, San Francisco, CA 94105' },
@@ -80,6 +87,42 @@ export default function Hire() {
   // Save to localStorage whenever allPostedItems changes
   React.useEffect(() => {
     localStorage.setItem('rushWorkingPostedItems', JSON.stringify(allPostedItems));
+  }, [allPostedItems]);
+
+  // Calculate applicant statistics for all jobs
+  React.useEffect(() => {
+    const stats: Record<string, {
+      total: number;
+      reviewed: number;
+      statusCounts: Record<ApplicationStatus, number>;
+    }> = {};
+
+    allPostedItems.forEach((job) => {
+      const applications = getApplicationsForJob(job.id);
+      const total = applications.length;
+      const reviewed = applications.filter(app => app.application.application_status !== 'applicant').length;
+
+      const statusCounts: Record<ApplicationStatus, number> = {
+        applicant: 0,
+        interested: 0,
+        in_review: 0,
+        interviewing: 0,
+        interviewed: 0,
+        offer_extended: 0,
+        accepted: 0,
+        rejected: 0,
+        waitlisted: 0
+      };
+
+      applications.forEach(app => {
+        const status = app.application.application_status;
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+
+      stats[job.id] = { total, reviewed, statusCounts };
+    });
+
+    setJobStats(stats);
   }, [allPostedItems]);
 
   const [formData, setFormData] = useState({
@@ -510,10 +553,33 @@ export default function Hire() {
                       </>
                     )}
                   </div>
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-gray-600 mb-3">
                     <Users className="h-4 w-4 mr-1" />
                     {item.applications} {item.isEvent ? 'registrants' : 'applications'}
                   </div>
+                  {jobStats[item.id] && jobStats[item.id].total > 0 && (
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-emerald-700">{jobStats[item.id].reviewed}</span>
+                        <span className="text-gray-500">/</span>
+                        <span className="font-semibold text-blue-700">{jobStats[item.id].total}</span>
+                        <span className="text-gray-600">reviewed</span>
+                      </div>
+                      <div className="h-3 w-px bg-gray-300" />
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {(Object.keys(STATUS_CONFIG) as ApplicationStatus[])
+                          .filter(status => status !== 'applicant' && jobStats[item.id].statusCounts[status] > 0)
+                          .map(status => (
+                            <span
+                              key={status}
+                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[status].bgColor} ${STATUS_CONFIG[status].color}`}
+                            >
+                              {STATUS_CONFIG[status].label}: {jobStats[item.id].statusCounts[status]}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
