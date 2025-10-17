@@ -1,5 +1,6 @@
-import { supabase } from './supabase';
 import { ApplicationStatus } from './mockData';
+
+const STATUS_HISTORY_KEY = 'rushWorking_statusHistory';
 
 export interface StatusHistoryEntry {
   id: string;
@@ -11,6 +12,31 @@ export interface StatusHistoryEntry {
   notes: string | null;
 }
 
+interface StatusHistoryStore {
+  [applicationId: string]: StatusHistoryEntry[];
+}
+
+function getAllStatusHistory(): StatusHistoryStore {
+  try {
+    const data = localStorage.getItem(STATUS_HISTORY_KEY);
+    return data ? JSON.parse(data) : {};
+  } catch (err) {
+    console.error('Error reading status history from localStorage:', err);
+    return {};
+  }
+}
+
+function saveAllStatusHistory(history: StatusHistoryStore): void {
+  try {
+    localStorage.setItem(STATUS_HISTORY_KEY, JSON.stringify(history));
+  } catch (err) {
+    console.error('Error saving status history to localStorage:', err);
+    if (err instanceof Error && err.name === 'QuotaExceededError') {
+      console.error('LocalStorage quota exceeded. Consider clearing old data.');
+    }
+  }
+}
+
 export async function recordStatusChange(
   applicationId: string,
   oldStatus: ApplicationStatus,
@@ -18,86 +44,70 @@ export async function recordStatusChange(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const allHistory = getAllStatusHistory();
 
-    const { error } = await supabase
-      .from('status_history')
-      .insert({
-        application_id: applicationId,
-        old_status: oldStatus,
-        new_status: newStatus,
-        changed_by: user?.id || null,
-        notes: notes || null,
-        changed_at: new Date().toISOString()
-      });
-
-    if (error) {
-      console.error('Error recording status change:', error);
-      recordStatusChangeToLocalStorage(applicationId, oldStatus, newStatus);
-      return { success: false, error: error.message };
+    if (!allHistory[applicationId]) {
+      allHistory[applicationId] = [];
     }
 
-    return { success: true };
-  } catch (err) {
-    console.error('Error recording status change:', err);
-    recordStatusChangeToLocalStorage(applicationId, oldStatus, newStatus);
-    return { success: false, error: 'Failed to record status change' };
-  }
-}
-
-export async function getStatusHistory(applicationId: string): Promise<StatusHistoryEntry[]> {
-  try {
-    const { data, error } = await supabase
-      .from('status_history')
-      .select('*')
-      .eq('application_id', applicationId)
-      .order('changed_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching status history:', error);
-      return getStatusHistoryFromLocalStorage(applicationId);
-    }
-
-    return data || [];
-  } catch (err) {
-    console.error('Error fetching status history:', err);
-    return getStatusHistoryFromLocalStorage(applicationId);
-  }
-}
-
-function recordStatusChangeToLocalStorage(
-  applicationId: string,
-  oldStatus: ApplicationStatus,
-  newStatus: ApplicationStatus
-): void {
-  try {
-    const key = `status_history_${applicationId}`;
-    const existing = localStorage.getItem(key);
-    const history: StatusHistoryEntry[] = existing ? JSON.parse(existing) : [];
-
-    history.push({
+    const newEntry: StatusHistoryEntry = {
       id: `local-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       application_id: applicationId,
       old_status: oldStatus,
       new_status: newStatus,
       changed_at: new Date().toISOString(),
       changed_by: null,
-      notes: null
-    });
+      notes: notes || null
+    };
 
-    localStorage.setItem(key, JSON.stringify(history));
+    allHistory[applicationId].push(newEntry);
+    saveAllStatusHistory(allHistory);
+
+    return { success: true };
   } catch (err) {
-    console.error('Error saving to localStorage:', err);
+    console.error('Error recording status change:', err);
+    return { success: false, error: 'Failed to record status change' };
   }
 }
 
-function getStatusHistoryFromLocalStorage(applicationId: string): StatusHistoryEntry[] {
+export async function getStatusHistory(applicationId: string): Promise<StatusHistoryEntry[]> {
   try {
-    const key = `status_history_${applicationId}`;
-    const existing = localStorage.getItem(key);
-    return existing ? JSON.parse(existing) : [];
+    const allHistory = getAllStatusHistory();
+    const history = allHistory[applicationId] || [];
+
+    return history.sort((a, b) =>
+      new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
+    );
   } catch (err) {
-    console.error('Error reading from localStorage:', err);
+    console.error('Error fetching status history:', err);
     return [];
+  }
+}
+
+export function clearStatusHistory(applicationId?: string): void {
+  try {
+    if (applicationId) {
+      const allHistory = getAllStatusHistory();
+      delete allHistory[applicationId];
+      saveAllStatusHistory(allHistory);
+    } else {
+      localStorage.removeItem(STATUS_HISTORY_KEY);
+    }
+  } catch (err) {
+    console.error('Error clearing status history:', err);
+  }
+}
+
+export function exportStatusHistory(): StatusHistoryStore {
+  return getAllStatusHistory();
+}
+
+export function importStatusHistory(history: StatusHistoryStore): boolean {
+  try {
+    saveAllStatusHistory(history);
+    return true;
+  } catch (err) {
+    console.error('Error importing status history:', err);
+    return false;
   }
 }
