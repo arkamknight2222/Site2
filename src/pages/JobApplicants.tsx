@@ -653,6 +653,7 @@ export default function JobApplicants() {
       <StatusChangeConfirmation
         isOpen={confirmModalOpen}
         applicantName={pendingStatusChange?.applicant.name || ''}
+        applicationId={pendingStatusChange?.applicant.applicationId || ''}
         currentStatus={pendingStatusChange?.applicant.applicationStatus || 'applicant'}
         newStatus={pendingStatusChange?.newStatus || 'applicant'}
         onConfirm={confirmStatusChange}
