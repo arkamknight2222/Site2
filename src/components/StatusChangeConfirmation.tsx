@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, ArrowRight, Clock } from 'lucide-react';
-import { ApplicationStatus, STATUS_CONFIG } from '../lib/mockData';
+import { ApplicationStatus, STATUS_CONFIG } from '../lib/types';
 import { getStatusHistory, StatusHistoryEntry } from '../lib/statusHistoryApi';
 
 interface StatusChangeConfirmationProps {
@@ -31,9 +31,9 @@ export default function StatusChangeConfirmation({
     }
   }, [isOpen, applicationId]);
 
-  const loadStatusHistory = async () => {
+  const loadStatusHistory = () => {
     setLoadingHistory(true);
-    const history = await getStatusHistory(applicationId);
+    const history = getStatusHistory(applicationId);
     setStatusHistory(history);
     setLoadingHistory(false);
   };

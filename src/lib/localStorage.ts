@@ -1,4 +1,4 @@
-import { ApplicantWithApplication, ApplicationStatus } from './mockData';
+import { ApplicantWithApplication, ApplicationStatus } from './types';
 import { exportStatusHistory, importStatusHistory, clearStatusHistory } from './statusHistoryApi';
 
 const STORAGE_KEYS = {

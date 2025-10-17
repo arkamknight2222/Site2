@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square, Clock, ArrowRight } from 'lucide-react';
-import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication, generateMockApplicationsForJob } from '../lib/mockData';
+import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication } from '../lib/types';
+import { generateMockApplicationsForJob } from '../lib/mockData';
 import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
 import { recordStatusChange, getStatusHistory, StatusHistoryEntry } from '../lib/statusHistoryApi';
 import { sendMessage, getMessages, Message } from '../lib/messagesApi';
@@ -92,7 +93,7 @@ export default function JobApplicants() {
     setConfirmModalOpen(true);
   };
 
-  const confirmStatusChange = async () => {
+  const confirmStatusChange = () => {
     if (!pendingStatusChange) return;
 
     const { applicant, newStatus } = pendingStatusChange;
@@ -101,7 +102,7 @@ export default function JobApplicants() {
     try {
       updateStorageStatus(jobId!, applicant.applicationId, newStatus);
 
-      await recordStatusChange(
+      recordStatusChange(
         applicant.applicationId,
         oldStatus,
         newStatus
@@ -185,10 +186,10 @@ export default function JobApplicants() {
     setMessageText('');
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (!selectedApplicant || !messageText.trim()) return;
 
-    const message = await sendMessage(
+    const message = sendMessage(
       jobId!,
       selectedApplicant.id,
       'employer',

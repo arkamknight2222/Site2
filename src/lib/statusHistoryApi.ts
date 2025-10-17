@@ -1,4 +1,4 @@
-import { ApplicationStatus } from './mockData';
+import { ApplicationStatus } from './types';
 
 const STATUS_HISTORY_KEY = 'rushWorking_statusHistory';
 
@@ -37,12 +37,12 @@ function saveAllStatusHistory(history: StatusHistoryStore): void {
   }
 }
 
-export async function recordStatusChange(
+export function recordStatusChange(
   applicationId: string,
   oldStatus: ApplicationStatus,
   newStatus: ApplicationStatus,
   notes?: string
-): Promise<{ success: boolean; error?: string }> {
+): { success: boolean; error?: string } {
   try {
     const allHistory = getAllStatusHistory();
 
@@ -70,7 +70,7 @@ export async function recordStatusChange(
   }
 }
 
-export async function getStatusHistory(applicationId: string): Promise<StatusHistoryEntry[]> {
+export function getStatusHistory(applicationId: string): StatusHistoryEntry[] {
   try {
     const allHistory = getAllStatusHistory();
     const history = allHistory[applicationId] || [];

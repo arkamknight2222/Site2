@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { User, FileText, MessageSquare, ChevronDown, Briefcase, GraduationCap } from 'lucide-react';
-import { ApplicationStatus, STATUS_CONFIG } from '../lib/mockData';
+import { ApplicationStatus, STATUS_CONFIG } from '../lib/types';
 
 interface ExtendedApplicant {
   id: string;
