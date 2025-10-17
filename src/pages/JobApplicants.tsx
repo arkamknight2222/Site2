@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square, Clock, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square } from 'lucide-react';
 import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication, generateMockApplicationsForJob } from '../lib/mockData';
 import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
-import { recordStatusChange, getStatusHistory, StatusHistoryEntry } from '../lib/statusHistoryApi';
 import MultiSortControl, { SortCriterion } from '../components/MultiSortControl';
 import StatusChangeConfirmation from '../components/StatusChangeConfirmation';
 import CompactApplicantCard from '../components/CompactApplicantCard';
-import DetailedApplicantCard from '../components/DetailedApplicantCard';
 
 interface ExtendedApplicant extends ApplicantWithApplication {
   applicantType: 'random' | 'points';
@@ -91,20 +89,13 @@ export default function JobApplicants() {
     setConfirmModalOpen(true);
   };
 
-  const confirmStatusChange = async () => {
+  const confirmStatusChange = () => {
     if (!pendingStatusChange) return;
 
     const { applicant, newStatus } = pendingStatusChange;
-    const oldStatus = applicant.applicationStatus;
 
     try {
       updateStorageStatus(jobId!, applicant.applicationId, newStatus);
-
-      await recordStatusChange(
-        applicant.applicationId,
-        oldStatus,
-        newStatus
-      );
 
       setAllApplicants(prev =>
         prev.map(a =>
@@ -328,6 +319,18 @@ export default function JobApplicants() {
           >
             Status Viewer
           </button>
+          <div className="flex items-center space-x-2">
+            <div
+              className={`h-2 w-2 rounded-full transition-colors ${
+                currentSlide === 0 ? 'bg-emerald-600' : 'bg-gray-300'
+              }`}
+            />
+            <div
+              className={`h-2 w-2 rounded-full transition-colors ${
+                currentSlide === 1 ? 'bg-blue-600' : 'bg-gray-300'
+              }`}
+            />
+          </div>
           <button
             onClick={() => setCurrentSlide(1)}
             className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
@@ -346,25 +349,10 @@ export default function JobApplicants() {
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
             <h2 className="text-2xl font-bold text-white mb-2">Status Viewer</h2>
             <p className="text-emerald-100 text-sm">Applicants with active status changes</p>
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-4">
               <span className="inline-block bg-white text-emerald-900 px-4 py-2 rounded-full font-bold text-lg">
                 {filteredStatusApplicants.length} Applicants
               </span>
-              <div className="flex flex-wrap gap-2">
-                {(Object.keys(STATUS_CONFIG) as ApplicationStatus[])
-                  .filter(status => status !== 'applicant' && getStatusCount(status) > 0)
-                  .map(status => (
-                    <span
-                      key={status}
-                      className="inline-flex items-center gap-1.5 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm font-medium"
-                    >
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_CONFIG[status].bgColor} ${STATUS_CONFIG[status].color}`}>
-                        {STATUS_CONFIG[status].label}
-                      </span>
-                      <span className="text-emerald-900 font-bold">{getStatusCount(status)}</span>
-                    </span>
-                  ))}
-              </div>
             </div>
           </div>
 
@@ -575,15 +563,16 @@ export default function JobApplicants() {
                 </div>
               </div>
 
-              <div className="p-4 space-y-3 max-h-[800px] overflow-y-auto">
+              <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
                 {filteredRandomApplicants.map((applicant) => (
-                  <DetailedApplicantCard
+                  <CompactApplicantCard
                     key={applicant.id}
                     applicant={applicant}
                     onViewDetails={handleViewDetails}
                     onViewResume={handleViewResume}
                     onMessage={handleMessage}
                     onStatusChange={handleStatusChangeRequest}
+                    showStatus={false}
                   />
                 ))}
                 {filteredRandomApplicants.length === 0 && (
@@ -627,15 +616,16 @@ export default function JobApplicants() {
                 </div>
               </div>
 
-              <div className="p-4 space-y-3 max-h-[800px] overflow-y-auto">
+              <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
                 {filteredPointsApplicants.map((applicant) => (
-                  <DetailedApplicantCard
+                  <CompactApplicantCard
                     key={applicant.id}
                     applicant={applicant}
                     onViewDetails={handleViewDetails}
                     onViewResume={handleViewResume}
                     onMessage={handleMessage}
                     onStatusChange={handleStatusChangeRequest}
+                    showStatus={false}
                   />
                 ))}
                 {filteredPointsApplicants.length === 0 && (
@@ -705,19 +695,6 @@ interface DetailsModalProps {
 
 function DetailsModal({ applicant, onClose, onViewResume, onMessage, onStatusChange }: DetailsModalProps) {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const [statusHistory, setStatusHistory] = useState<StatusHistoryEntry[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(true);
-
-  useEffect(() => {
-    loadStatusHistory();
-  }, [applicant.applicationId]);
-
-  const loadStatusHistory = async () => {
-    setLoadingHistory(true);
-    const history = await getStatusHistory(applicant.applicationId);
-    setStatusHistory(history);
-    setLoadingHistory(false);
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -850,53 +827,6 @@ function DetailsModal({ applicant, onClose, onViewResume, onMessage, onStatusCha
             <p className="text-sm text-gray-600 mt-1">
               <span className="font-semibold">Application Type:</span> {applicant.applicantType === 'points' ? 'Points Pool' : 'Random Pool'}
             </p>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center mb-4">
-              <Clock className="h-5 w-5 text-gray-600 mr-2" />
-              <h3 className="font-semibold text-gray-900">Status History</h3>
-            </div>
-            {loadingHistory ? (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-sm text-gray-600 mt-2">Loading history...</p>
-              </div>
-            ) : statusHistory.length > 0 ? (
-              <div className="space-y-3">
-                {statusHistory.map((entry, index) => (
-                  <div key={entry.id} className="flex items-start gap-3">
-                    <div className="flex flex-col items-center">
-                      <div className={`w-3 h-3 rounded-full ${index === 0 ? 'bg-blue-600' : 'bg-gray-400'}`} />
-                      {index < statusHistory.length - 1 && (
-                        <div className="w-0.5 h-full min-h-[20px] bg-gray-300 mt-1" />
-                      )}
-                    </div>
-                    <div className="flex-1 pb-3">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[entry.old_status].bgColor} ${STATUS_CONFIG[entry.old_status].color}`}>
-                          {STATUS_CONFIG[entry.old_status].label}
-                        </span>
-                        <ArrowRight className="h-3 w-3 text-gray-400" />
-                        <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[entry.new_status].bgColor} ${STATUS_CONFIG[entry.new_status].color}`}>
-                          {STATUS_CONFIG[entry.new_status].label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {new Date(entry.changed_at).toLocaleDateString()} at {new Date(entry.changed_at).toLocaleTimeString()}
-                      </p>
-                      {entry.notes && (
-                        <p className="text-xs text-gray-600 mt-1 italic">{entry.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-sm text-gray-600">No status changes recorded yet</p>
-              </div>
-            )}
           </div>
 
           <div className="flex space-x-3 pt-4 border-t border-gray-200">
