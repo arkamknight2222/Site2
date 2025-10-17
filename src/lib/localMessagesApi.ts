@@ -26,7 +26,10 @@ export function sendMessage(
     sender_id: senderId,
     content,
     read: false,
-    created_at: new Date().toISOString()
+    created_at: new Date().toISOString(),
+    status: 'delivered',
+    edited: false,
+    deleted: false
   };
 
   const allMessages = getAllMessages();
@@ -93,4 +96,93 @@ export function getUnreadMessageCount(
   return allMessages.filter(
     msg => msg.applicant_id === applicantId && msg.sender_type === senderType && !msg.read
   ).length;
+}
+
+export function updateMessage(
+  messageId: string,
+  newContent: string
+): boolean {
+  const allMessages = getAllMessages();
+  const messageIndex = allMessages.findIndex(msg => msg.id === messageId);
+
+  if (messageIndex !== -1) {
+    const message = allMessages[messageIndex];
+    allMessages[messageIndex] = {
+      ...message,
+      original_content: message.original_content || message.content,
+      content: newContent,
+      edited: true,
+      edited_at: new Date().toISOString()
+    };
+    saveAllMessages(allMessages);
+    return true;
+  }
+
+  return false;
+}
+
+export function deleteMessage(
+  messageId: string,
+  deletedBy: string
+): boolean {
+  const allMessages = getAllMessages();
+  const messageIndex = allMessages.findIndex(msg => msg.id === messageId);
+
+  if (messageIndex !== -1) {
+    allMessages[messageIndex] = {
+      ...allMessages[messageIndex],
+      deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: deletedBy
+    };
+    saveAllMessages(allMessages);
+    return true;
+  }
+
+  return false;
+}
+
+export function updateMessageStatus(
+  messageId: string,
+  status: 'sending' | 'delivered' | 'viewed'
+): boolean {
+  const allMessages = getAllMessages();
+  const messageIndex = allMessages.findIndex(msg => msg.id === messageId);
+
+  if (messageIndex !== -1) {
+    allMessages[messageIndex].status = status;
+    saveAllMessages(allMessages);
+    return true;
+  }
+
+  return false;
+}
+
+export function markMessagesAsViewed(
+  jobId: string,
+  applicantId: string,
+  viewerType: 'employer' | 'applicant'
+): boolean {
+  const allMessages = getAllMessages();
+  const otherSenderType = viewerType === 'employer' ? 'applicant' : 'employer';
+
+  let updated = false;
+  const updatedMessages = allMessages.map(msg => {
+    if (
+      msg.job_id === jobId &&
+      msg.applicant_id === applicantId &&
+      msg.sender_type === otherSenderType &&
+      msg.status !== 'viewed'
+    ) {
+      updated = true;
+      return { ...msg, status: 'viewed' as const, read: true };
+    }
+    return msg;
+  });
+
+  if (updated) {
+    saveAllMessages(updatedMessages);
+  }
+
+  return true;
 }

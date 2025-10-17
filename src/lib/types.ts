@@ -96,6 +96,8 @@ export interface ApplicantWithApplication extends Applicant {
   application: Application;
 }
 
+export type MessageStatus = 'sending' | 'delivered' | 'viewed';
+
 export interface Message {
   id: string;
   job_id: string;
@@ -105,4 +107,11 @@ export interface Message {
   content: string;
   read: boolean;
   created_at: string;
+  status: MessageStatus;
+  edited: boolean;
+  edited_at?: string;
+  original_content?: string;
+  deleted: boolean;
+  deleted_at?: string;
+  deleted_by?: string;
 }

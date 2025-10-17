@@ -7,7 +7,9 @@ import { generateMockApplicationsForJob } from '../lib/mockData';
 import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
 import { recordStatusChange, getStatusHistory, StatusHistoryEntry } from '../lib/statusHistoryApi';
 import { sendMessage, getMessages, Message } from '../lib/messagesApi';
+import { updateMessage, deleteMessage, markMessagesAsViewed } from '../lib/localMessagesApi';
 import MultiSortControl, { SortCriterion } from '../components/MultiSortControl';
+import MessageBubble from '../components/MessageBubble';
 import StatusChangeConfirmation from '../components/StatusChangeConfirmation';
 import CompactApplicantCard from '../components/CompactApplicantCard';
 import DetailedApplicantCard from '../components/DetailedApplicantCard';
@@ -1038,9 +1040,11 @@ interface MessageModalProps {
 function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, onClose }: MessageModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
   useEffect(() => {
     loadMessages();
+    markMessagesAsViewed(jobId, applicant.id, 'employer');
   }, [jobId, applicant.id]);
 
   const loadMessages = async () => {
@@ -1053,6 +1057,30 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
   const handleSend = async () => {
     await onSend();
     await loadMessages();
+  };
+
+  const handleCopy = (content: string) => {
+    showToast('Message copied to clipboard!', 'success');
+  };
+
+  const handleEdit = async (messageId: string, newContent: string) => {
+    const success = updateMessage(messageId, newContent);
+    if (success) {
+      showToast('Message updated!', 'success');
+      await loadMessages();
+    } else {
+      showToast('Failed to update message', 'error');
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    const success = deleteMessage(messageId, 'employer-user-id');
+    if (success) {
+      showToast('Message deleted', 'success');
+      await loadMessages();
+    } else {
+      showToast('Failed to delete message', 'error');
+    }
   };
 
   return (
@@ -1080,26 +1108,15 @@ function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, o
           ) : messages.length > 0 ? (
             <div className="space-y-4">
               {messages.map((message) => (
-                <div
+                <MessageBubble
                   key={message.id}
-                  className={`flex ${message.sender_type === 'employer' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg p-4 ${
-                      message.sender_type === 'employer'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-gray-200 text-gray-900'
-                    }`}
-                  >
-                    <p className="text-sm font-medium mb-1">
-                      {message.sender_type === 'employer' ? 'You' : applicant.name}
-                    </p>
-                    <p className="text-sm">{message.content}</p>
-                    <p className={`text-xs mt-2 ${message.sender_type === 'employer' ? 'text-blue-100' : 'text-gray-500'}`}>
-                      {new Date(message.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
+                  message={message}
+                  isOwnMessage={message.sender_type === 'employer'}
+                  senderName={message.sender_type === 'employer' ? 'You' : applicant.name}
+                  onCopy={handleCopy}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
               ))}
             </div>
           ) : (
