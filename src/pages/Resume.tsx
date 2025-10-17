@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
 import 'react-pdf/dist/esm/Page/TextLayer.css';
@@ -28,6 +29,7 @@ interface ResumeFolder {
 
 export default function Resume() {
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [folders, setFolders] = useState<ResumeFolder[]>([
   ]);
   const [resumes, setResumes] = useState<ResumeFile[]>([
@@ -74,7 +76,7 @@ export default function Resume() {
       ...resume,
       isDefault: resume.id === resumeId
     })));
-    alert('Default resume updated successfully!');
+    showToast('Default resume updated successfully!', 'success');
   };
 
   const viewResume = (resume: ResumeFile) => {
@@ -104,7 +106,7 @@ export default function Resume() {
 
   const downloadResume = (resume: ResumeFile) => {
     if (!resume.fileContent) {
-      alert('Resume file not available');
+      showToast('Resume file not available', 'error');
       return;
     }
 
@@ -138,7 +140,7 @@ export default function Resume() {
         setSelectedFolder('all');
       }
       
-      alert(`Folder "${itemToDelete.name}" deleted successfully!`);
+      showToast(`Folder "${itemToDelete.name}" deleted successfully!`, 'success');
     } else if (itemToDelete.type === 'resume') {
       setResumes(prev => prev.filter(r => r.id !== itemToDelete.id));
       
@@ -151,7 +153,7 @@ export default function Resume() {
         }
       }
       
-      alert(`Resume "${itemToDelete.name}" deleted successfully!`);
+      showToast(`Resume "${itemToDelete.name}" deleted successfully!`, 'success');
     }
     
     setShowDeleteConfirmation(false);
@@ -200,7 +202,7 @@ export default function Resume() {
     ));
     
     const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`);
+    showToast(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} moved to "${targetFolderName}" successfully!`, 'success');
     
     setShowBulkMoveModal(false);
     clearSelection();
@@ -221,7 +223,7 @@ export default function Resume() {
       }
     });
 
-    alert(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`);
+    showToast(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`, 'info');
     clearSelection();
   };
 
@@ -264,13 +266,13 @@ export default function Resume() {
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert('Please select a PDF, DOC, or DOCX file');
+      showToast('Please select a PDF, DOC, or DOCX file', 'error');
       return;
     }
 
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
-      alert('Resume must be smaller than 10MB');
+      showToast('Resume must be smaller than 10MB', 'error');
       return;
     }
 
@@ -291,7 +293,7 @@ export default function Resume() {
       };
 
       setResumes(prev => [newResume, ...prev]);
-      alert('Resume uploaded successfully!');
+      showToast('Resume uploaded successfully!', 'success');
     };
 
     reader.readAsDataURL(file);
@@ -359,7 +361,7 @@ export default function Resume() {
     setResumeToMove(null);
     
     const targetFolderName = targetFolderId === 'uncategorized' ? 'Uncategorized' : folders.find(f => f.id === targetFolderId)?.name;
-    alert(`Resume moved to "${targetFolderName}" successfully!`);
+    showToast(`Resume moved to "${targetFolderName}" successfully!`, 'success');
   };
 
   const updateAllResumesSorting = (sortBy: 'name' | 'date' | 'size') => {
@@ -1083,7 +1085,7 @@ export default function Resume() {
                       }
                     }
                     
-                    alert(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`);
+                    showToast(`${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''} deleted successfully!`, 'success');
                     clearSelection();
                   } else {
                     handleConfirmDelete();

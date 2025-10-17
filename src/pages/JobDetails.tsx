@@ -4,11 +4,13 @@ import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, 
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import ResumeSelector from '../components/ResumeSelector';
+import { useToast } from '../context/ToastContext';
 
 export default function JobDetails() {
   const { id } = useParams();
   const { getJob, applyToJob } = useJobs();
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [isApplying, setIsApplying] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -51,7 +53,7 @@ export default function JobDetails() {
         setShowResumeSelector(true);
       }
     } else {
-      alert('Please upload a resume first');
+      showToast('Please upload a resume first', 'warning');
     }
   };
 
@@ -73,7 +75,7 @@ export default function JobDetails() {
         const currentPoints = user.points || 0;
         updateUser({ points: currentPoints + 10 });
         setHasApplied(true);
-        alert(`Application submitted successfully with "${resume.name}"! You earned 10 points.`);
+        showToast(`Application submitted successfully with "${resume.name}"! You earned 10 points.`, 'success');
       }
       setIsApplying(false);
       setShowResumeSelector(false);

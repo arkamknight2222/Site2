@@ -6,10 +6,12 @@ import JobCard from '../components/JobCard';
 import FilterPanel from '../components/FilterPanel';
 import PointsDisplay from '../components/PointsDisplay';
 import { useDebounce } from '../hooks/useDebounce';
+import { useToast } from '../context/ToastContext';
 
 export default function JobFinder() {
   const { jobs } = useJobs();
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [filters, setFilters] = useState({
     search: '',
     location: '',
@@ -55,16 +57,16 @@ export default function JobFinder() {
 
   const handleQuickApply = (jobId: string) => {
     if (!user) {
-      alert('Please sign in to apply for jobs');
+      showToast('Please sign in to apply for jobs', 'warning');
       return;
     }
-    
+
     // Award 10 points for applying
     const currentPoints = user.points || 0;
     updateUser({ points: currentPoints + 10 });
-    
+
     // Simulate quick application
-    alert('Application submitted successfully! You earned 10 points. You can track it in your dashboard.');
+    showToast('Application submitted successfully! You earned 10 points. You can track it in your dashboard.', 'success');
     // In a real app, this would make an API call
   };
 

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Mail, Phone, MapPin, Clock, Send, User, MessageSquare } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 export default function Contact() {
+  const { showToast } = useToast();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -14,7 +16,7 @@ export default function Contact() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Handle form submission
-    alert('Thank you for your message! We\'ll get back to you within 24 hours.');
+    showToast('Thank you for your message! We\'ll get back to you within 24 hours.', 'success');
     
     // Reset form
     setFormData({

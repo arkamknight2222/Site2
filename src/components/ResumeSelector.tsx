@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Star, X, Eye, Download } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 
 interface ResumeFile {
   id: string;
@@ -27,6 +28,7 @@ interface ResumeSelectorProps {
 }
 
 export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: ResumeSelectorProps) {
+  const { showToast } = useToast();
   const [folders, setFolders] = useState<ResumeFolder[]>([]);
   const [resumes, setResumes] = useState<ResumeFile[]>([]);
   const [selectedFolder, setSelectedFolder] = useState('all');
@@ -186,7 +188,7 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
                           onClick={(e) => {
                             e.stopPropagation();
                             // View resume functionality
-                            alert(`Viewing ${resume.name}...`);
+                            showToast(`Viewing ${resume.name}...`, 'info');
                           }}
                           className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
                           title="View resume"
@@ -211,7 +213,7 @@ export default function ResumeSelector({ isOpen, onClose, onSelect, jobTitle }: 
                             document.body.removeChild(link);
                             URL.revokeObjectURL(url);
                             
-                            alert(`Downloading ${resume.fileName}...`);
+                            showToast(`Downloading ${resume.fileName}...`, 'info');
                           }}
                           className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
                           title="Download resume"

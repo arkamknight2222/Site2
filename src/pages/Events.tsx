@@ -6,10 +6,12 @@ import JobCard from '../components/JobCard';
 import FilterPanel from '../components/FilterPanel';
 import PointsDisplay from '../components/PointsDisplay';
 import { useDebounce } from '../hooks/useDebounce';
+import { useToast } from '../context/ToastContext';
 
 export default function Events() {
   const { events } = useJobs();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [filters, setFilters] = useState({
     search: '',
     location: '',
@@ -44,16 +46,16 @@ export default function Events() {
 
   const handleQuickApply = (eventId: string) => {
     if (!user) {
-      alert('Please sign in to register for events');
+      showToast('Please sign in to register for events', 'warning');
       return;
     }
-    
+
     // Award 10 points for registering
     const currentPoints = user.points || 0;
     updateUser({ points: currentPoints + 10 });
-    
+
     // Simulate quick registration
-    alert('Registration successful! You earned 10 points. Check your email for event details.');
+    showToast('Registration successful! You earned 10 points. Check your email for event details.', 'success');
     // In a real app, this would make an API call
   };
   return (

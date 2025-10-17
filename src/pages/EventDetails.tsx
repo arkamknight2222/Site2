@@ -4,11 +4,13 @@ import { MapPin, Calendar, Clock, Users, Star, Building, ArrowLeft, Zap } from '
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import ResumeSelector from '../components/ResumeSelector';
+import { useToast } from '../context/ToastContext';
 
 export default function EventDetails() {
   const { id } = useParams();
   const { getJob } = useJobs();
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [isRegistering, setIsRegistering] = useState(false);
   const [hasRegistered, setHasRegistered] = useState(false);
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -51,7 +53,7 @@ export default function EventDetails() {
         setShowResumeSelector(true);
       }
     } else {
-      alert('Please upload a resume first');
+      showToast('Please upload a resume first', 'warning');
     }
   };
 
@@ -71,7 +73,7 @@ export default function EventDetails() {
       const currentPoints = user.points || 0;
       updateUser({ points: currentPoints + 10 });
       setHasRegistered(true);
-      alert(`Registration successful with "${resume.name}"! You earned 10 points. Check your email for event details.`);
+      showToast(`Registration successful with "${resume.name}"! You earned 10 points. Check your email for event details.`, 'success');
       setIsRegistering(false);
       setShowResumeSelector(false);
     }, 1000);

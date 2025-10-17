@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Clock, DollarSign, Users, Star, Zap, Send, Bookmark } from 'lucide-react';
 import { Job } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 interface JobCardProps {
   job: Job;
@@ -12,13 +13,14 @@ interface JobCardProps {
 
 export default function JobCard({ job, showPoints = true, onQuickApply }: JobCardProps) {
   const { user } = useAuth();
+  const { showToast } = useToast();
   const canAfford = !user || user.points >= job.minimumPoints;
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     // TODO: Implement save functionality
-    alert(`${job.isEvent ? 'Event' : 'Job'} saved to your favorites!`);
+    showToast(`${job.isEvent ? 'Event' : 'Job'} saved to your favorites!`, 'success');
   };
 
   const handleQuickApply = (e: React.MouseEvent) => {

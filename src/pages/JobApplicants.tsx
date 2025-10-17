@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square, Clock, ArrowRight } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
 import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication } from '../lib/types';
 import { generateMockApplicationsForJob } from '../lib/mockData';
 import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
@@ -24,6 +25,7 @@ interface ExtendedApplicant extends ApplicantWithApplication {
 export default function JobApplicants() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [jobInfo, setJobInfo] = useState<any>(null);
   const [allApplicants, setAllApplicants] = useState<ExtendedApplicant[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export default function JobApplicants() {
       );
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status. Please try again.');
+      showToast('Failed to update status. Please try again.', 'error');
     }
 
     setConfirmModalOpen(false);
@@ -198,11 +200,11 @@ export default function JobApplicants() {
     );
 
     if (message) {
-      alert(`Message sent to ${selectedApplicant.name}!`);
       setShowMessageModal(false);
       setMessageText('');
+      showToast(`Message sent to ${selectedApplicant.name}!`, 'success');
     } else {
-      alert('Failed to send message. Please try again.');
+      showToast('Failed to send message. Please try again.', 'error');
     }
   };
 
@@ -955,7 +957,7 @@ function ResumeModal({ applicant, onClose }: ResumeModalProps) {
           </div>
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => alert('Resume download started!')}
+              onClick={() => showToast('Resume download started!', 'info')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
             >
               <Download className="h-4 w-4 mr-2" />

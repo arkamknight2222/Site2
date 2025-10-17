@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function Tracker() {
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [showConversationModal, setShowConversationModal] = useState(false);
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
@@ -67,7 +69,7 @@ export default function Tracker() {
     const currentPoints = user?.points || 0;
     updateUser({ points: currentPoints + pointsToAdd });
     setShowPointsModal(false);
-    alert(`Successfully purchased ${pointsToAdd} points!`);
+    showToast(`Successfully purchased ${pointsToAdd} points!`, 'success');
   };
 
   const handleAddPoints = (pointsToAdd: number) => {
@@ -75,7 +77,7 @@ export default function Tracker() {
     
     const currentUserPoints = user?.points || 0;
     if (currentUserPoints < pointsToAdd) {
-      alert('You don\'t have enough points!');
+      showToast('You don\'t have enough points!', 'error');
       return;
     }
 
@@ -93,7 +95,7 @@ export default function Tracker() {
 
     setShowAddPointsModal(false);
     setSelectedApplication(null);
-    alert(`Successfully added ${pointsToAdd} points to your application!`);
+    showToast(`Successfully added ${pointsToAdd} points to your application!`, 'success');
   };
 
   const handleRemovePoints = (pointsToRemove: number) => {
@@ -101,7 +103,7 @@ export default function Tracker() {
     
     const application = applications.find(app => app.id === selectedApplication);
     if (!application || application.addedPoints < pointsToRemove) {
-      alert('Cannot remove more points than you have added!');
+      showToast('Cannot remove more points than you have added!', 'error');
       return;
     }
 
@@ -121,7 +123,7 @@ export default function Tracker() {
 
     setShowRemovePointsModal(false);
     setSelectedApplication(null);
-    alert(`Successfully removed ${pointsToRemove} points from your application!`);
+    showToast(`Successfully removed ${pointsToRemove} points from your application!`, 'success');
   };
   const getStatusIcon = (status: string) => {
     switch (status) {

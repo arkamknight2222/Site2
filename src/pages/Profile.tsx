@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { User, Mail, Phone, Upload, Save, Edit, Camera, Building, Plus, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(user?.profilePicture || null);
+  const [deleteCompanyModal, setDeleteCompanyModal] = useState<{ isOpen: boolean; companyId: string | null; companyName: string }>({ isOpen: false, companyId: null, companyName: '' });
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -37,13 +41,13 @@ export default function Profile() {
     if (file) {
       // Validate file type
       if (!file.type.startsWith('image/')) {
-        alert('Please select an image file');
+        showToast('Please select an image file', 'error');
         return;
       }
-      
+
       // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('Image must be smaller than 5MB');
+        showToast('Image must be smaller than 5MB', 'error');
         return;
       }
       
@@ -69,13 +73,13 @@ export default function Profile() {
       ];
       
       if (!allowedTypes.includes(file.type)) {
-        alert('Please select a PDF, DOC, or DOCX file');
+        showToast('Please select a PDF, DOC, or DOCX file', 'error');
         return;
       }
-      
+
       // Validate file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert('Resume must be smaller than 10MB');
+        showToast('Resume must be smaller than 10MB', 'error');
         return;
       }
       
@@ -83,19 +87,19 @@ export default function Profile() {
       const fileName = file.name;
       const resumeUrl = `uploads/resumes/${Date.now()}_${fileName}`;
       
-      updateUser({ 
+      updateUser({
         resumeUrl: resumeUrl,
-        resumeFileName: fileName 
+        resumeFileName: fileName
       });
-      
-      alert('Resume uploaded successfully!');
+
+      showToast('Resume uploaded successfully!', 'success');
     }
   };
 
   const handleSave = () => {
     updateUser(formData);
     setIsEditing(false);
-    alert('Profile updated successfully!');
+    showToast('Profile updated successfully!', 'success');
   };
 
   const addSkill = () => {
@@ -125,14 +129,27 @@ export default function Profile() {
       setVerifiedCompanies([...verifiedCompanies, company]);
       setNewCompany({ name: '', address: '' });
       setShowAddCompany(false);
-      alert('Company verification submitted! It will be reviewed within 1-2 business days.');
+      showToast('Company verification submitted! It will be reviewed within 1-2 business days.', 'success');
     }
   };
 
   const removeCompany = (companyId: string) => {
-    if (window.confirm('Are you sure you want to remove this company verification?')) {
-      setVerifiedCompanies(verifiedCompanies.filter(c => c.id !== companyId));
-    }
+    const company = verifiedCompanies.find(c => c.id === companyId);
+    if (!company) return;
+
+    setDeleteCompanyModal({
+      isOpen: true,
+      companyId: companyId,
+      companyName: company.name
+    });
+  };
+
+  const confirmRemoveCompany = () => {
+    if (!deleteCompanyModal.companyId) return;
+
+    setVerifiedCompanies(verifiedCompanies.filter(c => c.id !== deleteCompanyModal.companyId));
+    showToast('Company verification removed successfully!', 'success');
+    setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' });
   };
 
   return (
@@ -556,6 +573,17 @@ export default function Profile() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteCompanyModal.isOpen}
+        title="Remove Company Verification"
+        message={`Are you sure you want to remove "${deleteCompanyModal.companyName}" from your verified companies?`}
+        confirmText="Remove"
+        cancelText="Cancel"
+        onConfirm={confirmRemoveCompany}
+        onCancel={() => setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' })}
+        variant="warning"
+      />
     </div>
   );
 }

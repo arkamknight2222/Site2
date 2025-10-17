@@ -22,6 +22,7 @@ import PointsHistory from './pages/PointsHistory';
 import Resume from './pages/Resume';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { JobProvider } from './context/JobContext';
+import { ToastProvider } from './context/ToastContext';
 
 function AppContent() {
   const { user, loading } = useAuth();
@@ -69,7 +70,9 @@ function App() {
     <Router>
       <AuthProvider>
         <JobProvider>
-          <AppContent />
+          <ToastProvider>
+            <AppContent />
+          </ToastProvider>
         </JobProvider>
       </AuthProvider>
     </Router>

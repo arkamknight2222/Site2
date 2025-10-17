@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Users, Calendar, DollarSign, MapPin, Building, Edit, Trash2, Eye } from 'lucide-react';
 import { Search } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import ConfirmModal from '../components/ConfirmModal';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import { useDebounce } from '../hooks/useDebounce';
@@ -12,6 +14,7 @@ export default function Hire() {
   const navigate = useNavigate();
   const { addJob, updateJob, deleteJob } = useJobs();
   const { user, updateUser } = useAuth();
+  const { showToast } = useToast();
   const [showPostForm, setShowPostForm] = useState(false);
   const [selectedPost, setSelectedPost] = useState<string | null>(null);
   const [editingJob, setEditingJob] = useState<any>(null);
@@ -19,6 +22,7 @@ export default function Hire() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ isOpen: boolean; jobId: string | null; jobTitle: string; isEvent: boolean }>({ isOpen: false, jobId: null, jobTitle: '', isEvent: false });
   const [jobStats, setJobStats] = useState<Record<string, {
     total: number;
     reviewed: number;
@@ -162,7 +166,7 @@ export default function Hire() {
     e.preventDefault();
     
     if (!user?.isVerified) {
-      alert('You need to verify your company information first!');
+      showToast('You need to verify your company information first!', 'warning');
       return;
     }
 
@@ -199,7 +203,7 @@ export default function Hire() {
         );
       }
       
-      alert('Job updated successfully!');
+      showToast('Job updated successfully!', 'success');
     } else {
       // Create new job
       const jobData = {
@@ -231,7 +235,7 @@ export default function Hire() {
       
       setAllPostedItems(prevItems => [newPostedItem, ...prevItems]);
       
-      alert(`${formData.isEvent ? 'Event' : 'Job'} posted successfully! $${formData.isEvent ? '0.50' : '1.00'} has been charged to your account.`);
+      showToast(`${formData.isEvent ? 'Event' : 'Job'} posted successfully! $${formData.isEvent ? '0.50' : '1.00'} has been charged to your account.`, 'success');
     }
     
     setShowPostForm(false);
@@ -285,7 +289,7 @@ export default function Hire() {
       companyId: 'COMP123456',
       companyLocation: 'City, State',
     });
-    alert('Company verification completed!');
+    showToast('Company verification completed!', 'success');
   };
 
   const handleEditJob = (job: any) => {
@@ -313,20 +317,27 @@ export default function Hire() {
     const jobToDelete = allPostedItems.find(item => item.id === jobId);
     if (!jobToDelete) return;
 
-    const confirmMessage = `Are you sure you want to delete this ${jobToDelete.isEvent ? 'event' : 'job'}? This action cannot be undone.`;
-    
-    if (window.confirm(confirmMessage)) {
-      // Delete from global context
-      const success = deleteJob(jobId);
-      
-      if (success) {
-        // Delete from local state
-        setAllPostedItems(prevItems => prevItems.filter(item => item.id !== jobId));
-        alert(`${jobToDelete.isEvent ? 'Event' : 'Job'} deleted successfully!`);
-      } else {
-        alert('Failed to delete. Please try again.');
-      }
+    setDeleteConfirmModal({
+      isOpen: true,
+      jobId: jobId,
+      jobTitle: jobToDelete.title,
+      isEvent: jobToDelete.isEvent || false
+    });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteConfirmModal.jobId) return;
+
+    const success = deleteJob(deleteConfirmModal.jobId);
+
+    if (success) {
+      setAllPostedItems(prevItems => prevItems.filter(item => item.id !== deleteConfirmModal.jobId));
+      showToast(`${deleteConfirmModal.isEvent ? 'Event' : 'Job'} deleted successfully!`, 'success');
+    } else {
+      showToast('Failed to delete. Please try again.', 'error');
     }
+
+    setDeleteConfirmModal({ isOpen: false, jobId: null, jobTitle: '', isEvent: false });
   };
 
   const typeOptions = [
@@ -936,6 +947,17 @@ export default function Hire() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={deleteConfirmModal.isOpen}
+        title={`Delete ${deleteConfirmModal.isEvent ? 'Event' : 'Job'}`}
+        message={`Are you sure you want to delete "${deleteConfirmModal.jobTitle}"? This action cannot be undone.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirmModal({ isOpen: false, jobId: null, jobTitle: '', isEvent: false })}
+        variant="danger"
+      />
     </div>
   );
 }
