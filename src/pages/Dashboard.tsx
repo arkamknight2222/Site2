@@ -166,6 +166,17 @@ export default function Dashboard() {
                   Update Profile
                 </span>
               </Link>
+              <Link
+                to="/resume"
+                className="flex items-center p-3 rounded-lg bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-100 hover:from-cyan-100 hover:to-blue-100 transition-all group"
+              >
+                <div className="bg-gradient-to-r from-cyan-600 to-blue-600 p-2 rounded-lg mr-3">
+                  <Upload className="h-5 w-5 text-white" />
+                </div>
+                <span className="font-medium text-gray-900 group-hover:text-cyan-600 transition-colors">
+                  Resume Manager
+                </span>
+              </Link>
             </div>
           </div>
 
