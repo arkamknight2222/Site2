@@ -4,6 +4,7 @@ import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, 
 import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication, generateMockApplicationsForJob } from '../lib/mockData';
 import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
 import { recordStatusChange, getStatusHistory, StatusHistoryEntry } from '../lib/statusHistoryApi';
+import { sendMessage, getMessages, Message } from '../lib/messagesApi';
 import MultiSortControl, { SortCriterion } from '../components/MultiSortControl';
 import StatusChangeConfirmation from '../components/StatusChangeConfirmation';
 import CompactApplicantCard from '../components/CompactApplicantCard';
@@ -184,10 +185,24 @@ export default function JobApplicants() {
     setMessageText('');
   };
 
-  const sendMessage = () => {
-    alert(`Message sent to ${selectedApplicant?.name}!`);
-    setShowMessageModal(false);
-    setMessageText('');
+  const handleSendMessage = async () => {
+    if (!selectedApplicant || !messageText.trim()) return;
+
+    const message = await sendMessage(
+      jobId!,
+      selectedApplicant.id,
+      'employer',
+      'employer-user-id',
+      messageText
+    );
+
+    if (message) {
+      alert(`Message sent to ${selectedApplicant.name}!`);
+      setShowMessageModal(false);
+      setMessageText('');
+    } else {
+      alert('Failed to send message. Please try again.');
+    }
   };
 
   const filterApplicants = (applicants: ExtendedApplicant[], searchTerm: string) => {
@@ -686,9 +701,10 @@ export default function JobApplicants() {
       {showMessageModal && selectedApplicant && (
         <MessageModal
           applicant={selectedApplicant}
+          jobId={jobId!}
           messageText={messageText}
           setMessageText={setMessageText}
-          onSend={sendMessage}
+          onSend={handleSendMessage}
           onClose={() => setShowMessageModal(false)}
         />
       )}
@@ -1009,20 +1025,40 @@ function ResumeModal({ applicant, onClose }: ResumeModalProps) {
 
 interface MessageModalProps {
   applicant: ExtendedApplicant;
+  jobId: string;
   messageText: string;
   setMessageText: (text: string) => void;
   onSend: () => void;
   onClose: () => void;
 }
 
-function MessageModal({ applicant, messageText, setMessageText, onSend, onClose }: MessageModalProps) {
+function MessageModal({ applicant, jobId, messageText, setMessageText, onSend, onClose }: MessageModalProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadMessages();
+  }, [jobId, applicant.id]);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    const fetchedMessages = await getMessages(jobId, applicant.id);
+    setMessages(fetchedMessages);
+    setLoading(false);
+  };
+
+  const handleSend = async () => {
+    await onSend();
+    await loadMessages();
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full">
-        <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
+        <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Send Message</h2>
-            <p className="text-sm text-gray-600 mt-1">To: {applicant.name} ({applicant.email})</p>
+            <h2 className="text-2xl font-bold text-gray-900">Direct Message</h2>
+            <p className="text-sm text-gray-600 mt-1">Conversation with {applicant.name}</p>
           </div>
           <button
             onClick={onClose}
@@ -1032,30 +1068,69 @@ function MessageModal({ applicant, messageText, setMessageText, onSend, onClose 
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-600 mt-2">Loading messages...</p>
+            </div>
+          ) : messages.length > 0 ? (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`flex ${message.sender_type === 'employer' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={`max-w-[70%] rounded-lg p-4 ${
+                      message.sender_type === 'employer'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-white border border-gray-200 text-gray-900'
+                    }`}
+                  >
+                    <p className="text-sm font-medium mb-1">
+                      {message.sender_type === 'employer' ? 'You' : applicant.name}
+                    </p>
+                    <p className="text-sm">{message.content}</p>
+                    <p className={`text-xs mt-2 ${message.sender_type === 'employer' ? 'text-blue-100' : 'text-gray-500'}`}>
+                      {new Date(message.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">No messages yet. Start the conversation!</p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-white flex-shrink-0">
           <textarea
             value={messageText}
             onChange={(e) => setMessageText(e.target.value)}
             placeholder="Type your message here..."
-            className="w-full h-48 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            className="w-full h-24 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4"
           />
 
-          <div className="flex items-center justify-between mt-6">
-            <p className="text-sm text-gray-600">Messages are sent directly to the applicant's email</p>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">Messages are stored in the tracker</p>
             <div className="flex space-x-3">
               <button
                 onClick={onClose}
                 className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
               >
-                Cancel
+                Close
               </button>
               <button
-                onClick={onSend}
+                onClick={handleSend}
                 disabled={!messageText.trim()}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
               >
                 <MessageSquare className="h-5 w-5 mr-2" />
-                Send Message
+                Send
               </button>
             </div>
           </div>
