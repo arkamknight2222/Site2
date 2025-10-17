@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, X } from 'lucide-react';
+import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, Square, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 interface ResumeFile {
@@ -579,68 +579,109 @@ export default function Resume() {
                 </div>
               </div>
 
-              {/* Sort Controls */}
-              {(currentFolder || selectedFolder === 'all') && ( /* Ensure this div is always present for sorting */
+              {/* Sort Controls and Selection Actions */}
+              {(currentFolder || selectedFolder === 'all') && (
                 <div className="flex items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-200">
-                  <div className="flex items-center gap-2"> {/* Group for sort controls */}
-                    <span className="text-sm text-gray-600 mr-2">Sort by:</span>
-                    <button
-                      onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                        (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name'
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      Name
-                      {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name' && (
-                        (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('date') : updateSort(selectedFolder, 'date')}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                        (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date'
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      Date
-                      {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date' && (
-                        (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
-                      )}
-                    </button>
-                    <button
-                      onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('size') : updateSort(selectedFolder, 'size')}
-                      className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
-                        (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size'
-                          ? 'bg-blue-100 text-blue-600'
-                          : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                    >
-                      Size
-                      {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size' && (
-                        (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
-                      )}
-                    </button>
-                  </div>
-                  {/* Quick Select Button */}
-                  {isSelectionMode ? (
-                    <button
-                      onClick={clearSelection}
-                      className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                      title="Cancel Selection"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
+                  {!isSelectionMode ? (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600 mr-2">Sort by:</span>
+                        <button
+                          onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('name') : updateSort(selectedFolder, 'name')}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                            (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name'
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Name
+                          {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'name' && (
+                            (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('date') : updateSort(selectedFolder, 'date')}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                            (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date'
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Date
+                          {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'date' && (
+                            (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => selectedFolder === 'all' ? updateAllResumesSorting('size') : updateSort(selectedFolder, 'size')}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors flex items-center ${
+                            (selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size'
+                              ? 'bg-blue-100 text-blue-600'
+                              : 'text-gray-600 hover:bg-gray-100'
+                          }`}
+                        >
+                          Size
+                          {(selectedFolder === 'all' ? allResumesSorting.sortBy : currentFolder?.sortBy) === 'size' && (
+                            (selectedFolder === 'all' ? allResumesSorting.sortOrder : currentFolder?.sortOrder) === 'asc' ? <SortAsc className="h-3 w-3 ml-1" /> : <SortDesc className="h-3 w-3 ml-1" />
+                          )}
+                        </button>
+                      </div>
+                      <button
+                        onClick={() => setIsSelectionMode(true)}
+                        className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                        title="Quick Select"
+                      >
+                        <CheckSquare className="h-4 w-4" />
+                      </button>
+                    </>
                   ) : (
-                    <button
-                      onClick={() => setIsSelectionMode(true)}
-                      className="p-2 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                      title="Quick Select"
-                    >
-                      <CheckSquare className="h-4 w-4" />
-                    </button>
+                    <>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-900">
+                          {selectedResumes.length} selected
+                        </span>
+                        <button
+                          onClick={selectAllResumes}
+                          className="px-3 py-1 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                        >
+                          Select All
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {selectedResumes.length > 0 && (
+                          <>
+                            <button
+                              onClick={() => setShowBulkMoveModal(true)}
+                              className="px-3 py-1 rounded-lg text-sm font-medium bg-purple-100 text-purple-600 hover:bg-purple-200 transition-colors flex items-center"
+                            >
+                              <FolderPlus className="h-3 w-3 mr-1" />
+                              Move
+                            </button>
+                            <button
+                              onClick={bulkDownloadResumes}
+                              className="px-3 py-1 rounded-lg text-sm font-medium bg-green-100 text-green-600 hover:bg-green-200 transition-colors flex items-center"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </button>
+                            <button
+                              onClick={bulkDeleteResumes}
+                              className="px-3 py-1 rounded-lg text-sm font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-colors flex items-center"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
+                              Delete
+                            </button>
+                          </>
+                        )}
+                        <button
+                          onClick={clearSelection}
+                          className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                          title="Cancel Selection"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -651,9 +692,25 @@ export default function Resume() {
               {filteredResumes.length > 0 ? (
                 <div className="space-y-4">
                   {filteredResumes.map((resume) => (
-                    <div key={resume.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div key={resume.id} className={`border rounded-lg p-4 transition-all ${
+                      selectedResumes.includes(resume.id)
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-gray-200 hover:shadow-md'
+                    }`}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center flex-1">
+                          {isSelectionMode && (
+                            <button
+                              onClick={() => toggleResumeSelection(resume.id)}
+                              className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                              {selectedResumes.includes(resume.id) ? (
+                                <CheckSquare className="h-6 w-6 text-blue-600" />
+                              ) : (
+                                <Square className="h-6 w-6 text-gray-400" />
+                              )}
+                            </button>
+                          )}
                           <div className="bg-blue-100 p-3 rounded-lg mr-4">
                             <FileText className="h-6 w-6 text-blue-600" />
                           </div>
@@ -674,50 +731,52 @@ export default function Resume() {
                             </div>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => setDefaultResume(resume.id)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              resume.isDefault
-                                ? 'bg-green-100 text-green-600'
-                                : 'bg-gray-100 text-gray-600 hover:bg-yellow-100 hover:text-yellow-600'
-                            }`}
-                            title={resume.isDefault ? 'Default resume' : 'Set as default'}
-                          >
-                            {resume.isDefault ? <Star className="h-4 w-4" /> : <StarOff className="h-4 w-4" />}
-                          </button>
-                          <button
-                            className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
-                            title="View resume"
-                            onClick={() => viewResume(resume)}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </button>
-                          <button
-                            className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
-                            title="Download resume"
-                            onClick={() => downloadResume(resume)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setResumeToMove(resume);
-                              setShowMoveModal(true);
-                            }}
-                            className="bg-purple-100 text-purple-600 p-2 rounded-lg hover:bg-purple-200 transition-colors"
-                            title="Move to folder"
-                          >
-                            <FolderPlus className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => deleteResume(resume.id)}
-                            className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
-                            title="Delete resume"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
+                        {!isSelectionMode && (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => setDefaultResume(resume.id)}
+                              className={`p-2 rounded-lg transition-colors ${
+                                resume.isDefault
+                                  ? 'bg-green-100 text-green-600'
+                                  : 'bg-gray-100 text-gray-600 hover:bg-yellow-100 hover:text-yellow-600'
+                              }`}
+                              title={resume.isDefault ? 'Default resume' : 'Set as default'}
+                            >
+                              {resume.isDefault ? <Star className="h-4 w-4" /> : <StarOff className="h-4 w-4" />}
+                            </button>
+                            <button
+                              className="bg-blue-100 text-blue-600 p-2 rounded-lg hover:bg-blue-200 transition-colors"
+                              title="View resume"
+                              onClick={() => viewResume(resume)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              className="bg-green-100 text-green-600 p-2 rounded-lg hover:bg-green-200 transition-colors"
+                              title="Download resume"
+                              onClick={() => downloadResume(resume)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setResumeToMove(resume);
+                                setShowMoveModal(true);
+                              }}
+                              className="bg-purple-100 text-purple-600 p-2 rounded-lg hover:bg-purple-200 transition-colors"
+                              title="Move to folder"
+                            >
+                              <FolderPlus className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => deleteResume(resume.id)}
+                              className="bg-red-100 text-red-600 p-2 rounded-lg hover:bg-red-200 transition-colors"
+                              title="Delete resume"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -751,55 +810,75 @@ export default function Resume() {
       {/* Resume Viewer Modal */}
       {viewingResume && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full h-[80vh] flex flex-col">
-            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">{viewingResume.name}</h2>
-                <p className="text-gray-600 text-sm">{viewingResume.fileName}</p>
+                <p className="text-sm text-gray-600 mt-1">{viewingResume.fileName}</p>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2">
                 <button
                   onClick={() => downloadResume(viewingResume)}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download
                 </button>
                 <button
                   onClick={() => setViewingResume(null)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors text-2xl"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  ×
+                  <X className="h-6 w-6" />
                 </button>
               </div>
             </div>
-            <div className="flex-1 p-6 overflow-hidden">
-              <div className="w-full h-full bg-gray-100 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <FileText className="h-24 w-24 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-700 mb-2">Resume Preview</h3>
-                  <p className="text-gray-600 mb-4">
-                    {viewingResume.fileName}
-                  </p>
-                  <div className="space-y-2 text-sm text-gray-500">
-                    <p>Size: {formatFileSize(viewingResume.size)}</p>
-                    <p>Uploaded: {formatDate(viewingResume.uploadDate)}</p>
-                    {viewingResume.isDefault && (
-                      <p className="text-green-600 font-medium">✓ Default Resume</p>
-                    )}
+
+            <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
+              <div className="bg-white rounded-lg shadow-lg p-8 max-w-3xl mx-auto">
+                <div className="border-b-4 border-blue-600 pb-4 mb-6">
+                  <h1 className="text-3xl font-bold text-gray-900">{viewingResume.name}</h1>
+                  <p className="text-gray-600 mt-1">{user?.email || 'email@example.com'} • {user?.phone || '(555) 123-4567'}</p>
+                  <p className="text-gray-600">United States</p>
+                </div>
+
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-3">Education</h2>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="font-semibold text-gray-900">Bachelor's Degree in Computer Science</p>
+                    <p className="text-gray-600">University Name • 2020</p>
                   </div>
-                  <div className="mt-6">
-                    <button
-                      onClick={() => downloadResume(viewingResume)}
-                      className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center mx-auto"
-                    >
-                      <Download className="h-5 w-5 mr-2" />
-                      Download Resume
-                    </button>
+                </div>
+
+                <div className="mb-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-3">Experience</h2>
+                  <div className="bg-gray-50 rounded-lg p-4 mb-3">
+                    <p className="font-semibold text-gray-900">Senior Position</p>
+                    <p className="text-gray-600 text-sm mb-2">Company Name • 2020 - Present</p>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
+                      <li>Led development of key features and improvements</li>
+                      <li>Collaborated with cross-functional teams</li>
+                      <li>Mentored junior developers</li>
+                    </ul>
                   </div>
-                  <p className="text-xs text-gray-400 mt-4">
-                    Note: In a production environment, this would show the actual PDF/document content
-                  </p>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="font-semibold text-gray-900">Previous Position</p>
+                    <p className="text-gray-600 text-sm mb-2">Another Company • 2018 - 2020</p>
+                    <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
+                      <li>Developed and maintained applications</li>
+                      <li>Implemented best practices</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 mb-3">Skills</h2>
+                  <div className="flex flex-wrap gap-2">
+                    {['JavaScript', 'React', 'TypeScript', 'Node.js', 'Python', 'SQL', 'Git', 'Agile'].map(skill => (
+                      <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
