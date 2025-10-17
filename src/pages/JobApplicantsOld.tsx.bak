@@ -41,6 +41,9 @@ export default function JobApplicants() {
   const [sortCriteriaStatus, setSortCriteriaStatus] = useState<SortCriterion[]>([]);
   const [sortCriteriaRandom, setSortCriteriaRandom] = useState<SortCriterion[]>([]);
   const [sortCriteriaPoints, setSortCriteriaPoints] = useState<SortCriterion[]>([]);
+  const [showSortMenuStatus, setShowSortMenuStatus] = useState(false);
+  const [showSortMenuRandom, setShowSortMenuRandom] = useState(false);
+  const [showSortMenuPoints, setShowSortMenuPoints] = useState(false);
 
   useEffect(() => {
     loadJobAndApplicants();
@@ -190,16 +193,12 @@ export default function JobApplicants() {
     });
   };
 
-  const filterApplicantsNoFilter = (applicants: ExtendedApplicant[], searchTerm: string) => {
-    return applicants.filter(applicant => applicant.name.toLowerCase().includes(searchTerm.toLowerCase()));
-  };
-
   const statusApplicants = allApplicants.filter(a => a.applicationStatus !== 'applicant');
   const randomApplicants = allApplicants.filter(a => a.applicationStatus === 'applicant' && a.applicantType === 'random');
   const pointsApplicants = allApplicants.filter(a => a.applicationStatus === 'applicant' && a.applicantType === 'points');
 
   const filteredStatusApplicants = sortApplicants(
-    filterApplicantsNoFilter(
+    filterApplicants(
       selectedStatuses.length > 0
         ? statusApplicants.filter(a => selectedStatuses.includes(a.applicationStatus))
         : statusApplicants,
@@ -230,21 +229,6 @@ export default function JobApplicants() {
     return statusApplicants.filter(a => a.applicationStatus === status).length;
   };
 
-  const statusSortFields = [
-    { field: 'name' as const, label: 'Name' },
-    { field: 'date' as const, label: 'Date Applied' },
-    { field: 'experience' as const, label: 'Experience' },
-    { field: 'degree' as const, label: 'Education' },
-    { field: 'status' as const, label: 'Status Type' }
-  ];
-
-  const poolSortFields = [
-    { field: 'name' as const, label: 'Name' },
-    { field: 'date' as const, label: 'Date Applied' },
-    { field: 'experience' as const, label: 'Experience' },
-    { field: 'degree' as const, label: 'Education' }
-  ];
-
   if (!jobInfo) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -271,6 +255,21 @@ export default function JobApplicants() {
       </div>
     );
   }
+
+  const statusSortFields = [
+    { field: 'name' as const, label: 'Name' },
+    { field: 'date' as const, label: 'Date Applied' },
+    { field: 'experience' as const, label: 'Experience' },
+    { field: 'degree' as const, label: 'Education' },
+    { field: 'status' as const, label: 'Status Type' }
+  ];
+
+  const poolSortFields = [
+    { field: 'name' as const, label: 'Name' },
+    { field: 'date' as const, label: 'Date Applied' },
+    { field: 'experience' as const, label: 'Experience' },
+    { field: 'degree' as const, label: 'Education' }
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -309,43 +308,58 @@ export default function JobApplicants() {
 
       <div className="flex justify-center mb-6">
         <div className="flex items-center space-x-3 bg-white rounded-full px-6 py-3 shadow-md border border-gray-200">
-          <button
-            onClick={() => setCurrentSlide(0)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              currentSlide === 0
-                ? 'bg-emerald-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Status Viewer
-          </button>
-          <div className="flex items-center space-x-2">
-            <div
-              className={`h-2 w-2 rounded-full transition-colors ${
-                currentSlide === 0 ? 'bg-emerald-600' : 'bg-gray-300'
-              }`}
-            />
-            <div
-              className={`h-2 w-2 rounded-full transition-colors ${
-                currentSlide === 1 ? 'bg-blue-600' : 'bg-gray-300'
-              }`}
-            />
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center">
+            <Filter className="h-5 w-5 mr-2" />
+            Filter Applicants
+          </h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Experience:</label>
+              <select
+                value={filterExperience}
+                onChange={(e) => setFilterExperience(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="all">All</option>
+                <option value="Entry">Entry Level</option>
+                <option value="Mid">Mid Level</option>
+                <option value="Senior">Senior Level</option>
+                <option value="Expert">Expert Level</option>
+              </select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Degree:</label>
+              <select
+                value={filterDegree}
+                onChange={(e) => setFilterDegree(e.target.value)}
+                className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              >
+                <option value="all">All</option>
+                <option value="High School">High School</option>
+                <option value="Associate">Associate</option>
+                <option value="Bachelor">Bachelor's</option>
+                <option value="Master">Master's</option>
+                <option value="PhD">PhD</option>
+              </select>
+            </div>
+            {(filterExperience !== 'all' || filterDegree !== 'all') && (
+              <button
+                onClick={() => {
+                  setFilterExperience('all');
+                  setFilterDegree('all');
+                }}
+                className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Clear Filters
+              </button>
+            )}
           </div>
-          <button
-            onClick={() => setCurrentSlide(1)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              currentSlide === 1
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            Application Pools
-          </button>
         </div>
       </div>
 
-      {currentSlide === 0 && statusApplicants.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-lg border border-emerald-200 overflow-hidden">
+      {statusApplicants.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-lg border border-emerald-200 overflow-hidden mb-6">
           <div className="bg-gradient-to-r from-emerald-600 to-teal-600 p-6">
             <h2 className="text-2xl font-bold text-white mb-2">Status Viewer</h2>
             <p className="text-emerald-100 text-sm">Applicants with active status changes</p>
@@ -368,12 +382,6 @@ export default function JobApplicants() {
                   className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm"
                 />
               </div>
-              <MultiSortControl
-                criteria={sortCriteriaStatus}
-                onChange={setSortCriteriaStatus}
-                availableFields={statusSortFields}
-                themeColor="emerald"
-              />
               <div className="relative">
                 <button
                   onClick={() => setShowStatusFilter(!showStatusFilter)}
@@ -455,15 +463,15 @@ export default function JobApplicants() {
             )}
           </div>
 
-          <div className="p-4 space-y-2 max-h-[600px] overflow-y-auto">
+          <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
             {filteredStatusApplicants.map((applicant) => (
-              <CompactApplicantCard
+              <ApplicantCard
                 key={applicant.id}
                 applicant={applicant}
                 onViewDetails={handleViewDetails}
                 onViewResume={handleViewResume}
                 onMessage={handleMessage}
-                onStatusChange={handleStatusChangeRequest}
+                onStatusChange={handleStatusChange}
                 showStatus={true}
               />
             ))}
@@ -477,177 +485,97 @@ export default function JobApplicants() {
         </div>
       )}
 
-      {currentSlide === 1 && (
-        <>
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-              <h2 className="text-xl font-bold text-gray-900 flex items-center">
-                <Filter className="h-5 w-5 mr-2" />
-                Filter Applicants
-              </h2>
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Experience:</label>
-                  <select
-                    value={filterExperience}
-                    onChange={(e) => setFilterExperience(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="all">All</option>
-                    <option value="Entry">Entry Level</option>
-                    <option value="Mid">Mid Level</option>
-                    <option value="Senior">Senior Level</option>
-                    <option value="Expert">Expert Level</option>
-                  </select>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm font-medium text-gray-700">Degree:</label>
-                  <select
-                    value={filterDegree}
-                    onChange={(e) => setFilterDegree(e.target.value)}
-                    className="px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                  >
-                    <option value="all">All</option>
-                    <option value="High School">High School</option>
-                    <option value="Associate">Associate</option>
-                    <option value="Bachelor">Bachelor's</option>
-                    <option value="Master">Master's</option>
-                    <option value="PhD">PhD</option>
-                  </select>
-                </div>
-                {(filterExperience !== 'all' || filterDegree !== 'all') && (
-                  <button
-                    onClick={() => {
-                      setFilterExperience('all');
-                      setFilterDegree('all');
-                    }}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Clear Filters
-                  </button>
-                )}
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-gray-500 to-gray-600 p-6">
+            <h2 className="text-2xl font-bold text-white mb-2">Random Pool</h2>
+            <p className="text-gray-100 text-sm">Standard applicants without point usage</p>
+            <div className="mt-4">
+              <span className="inline-block bg-white text-gray-900 px-4 py-2 rounded-full font-bold text-lg">
+                {filteredRandomApplicants.length} Applicants
+              </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-500 to-gray-600 p-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Random Pool</h2>
-                <p className="text-gray-100 text-sm">Standard applicants without point usage</p>
-                <div className="mt-4">
-                  <span className="inline-block bg-white text-gray-900 px-4 py-2 rounded-full font-bold text-lg">
-                    {filteredRandomApplicants.length} Applicants
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by name..."
-                      value={searchRandom}
-                      onChange={(e) => setSearchRandom(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  <MultiSortControl
-                    criteria={sortCriteriaRandom}
-                    onChange={setSortCriteriaRandom}
-                    availableFields={poolSortFields}
-                    themeColor="gray"
-                  />
-                </div>
-              </div>
-
-              <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
-                {filteredRandomApplicants.map((applicant) => (
-                  <CompactApplicantCard
-                    key={applicant.id}
-                    applicant={applicant}
-                    onViewDetails={handleViewDetails}
-                    onViewResume={handleViewResume}
-                    onMessage={handleMessage}
-                    onStatusChange={handleStatusChangeRequest}
-                    showStatus={false}
-                  />
-                ))}
-                {filteredRandomApplicants.length === 0 && (
-                  <div className="text-center py-12">
-                    <User className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">No applicants found</p>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
-                <h2 className="text-2xl font-bold text-white mb-2">Points Pool</h2>
-                <p className="text-blue-100 text-sm">Priority applicants who used points</p>
-                <div className="mt-4">
-                  <span className="inline-block bg-white text-blue-900 px-4 py-2 rounded-full font-bold text-lg">
-                    {filteredPointsApplicants.length} Applicants
-                  </span>
-                </div>
-              </div>
-
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by name..."
-                      value={searchPoints}
-                      onChange={(e) => setSearchPoints(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
-                    />
-                  </div>
-                  <MultiSortControl
-                    criteria={sortCriteriaPoints}
-                    onChange={setSortCriteriaPoints}
-                    availableFields={poolSortFields}
-                    themeColor="blue"
-                  />
-                </div>
-              </div>
-
-              <div className="p-4 space-y-2 max-h-[800px] overflow-y-auto">
-                {filteredPointsApplicants.map((applicant) => (
-                  <CompactApplicantCard
-                    key={applicant.id}
-                    applicant={applicant}
-                    onViewDetails={handleViewDetails}
-                    onViewResume={handleViewResume}
-                    onMessage={handleMessage}
-                    onStatusChange={handleStatusChangeRequest}
-                    showStatus={false}
-                  />
-                ))}
-                {filteredPointsApplicants.length === 0 && (
-                  <div className="text-center py-12">
-                    <User className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-                    <p className="text-gray-600">No applicants found</p>
-                  </div>
-                )}
-              </div>
+          <div className="p-4 border-b border-gray-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={searchRandom}
+                onChange={(e) => setSearchRandom(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              />
             </div>
           </div>
-        </>
-      )}
 
-      <StatusChangeConfirmation
-        isOpen={confirmModalOpen}
-        applicantName={pendingStatusChange?.applicant.name || ''}
-        currentStatus={pendingStatusChange?.applicant.applicationStatus || 'applicant'}
-        newStatus={pendingStatusChange?.newStatus || 'applicant'}
-        onConfirm={confirmStatusChange}
-        onCancel={cancelStatusChange}
-      />
+          <div className="p-4 space-y-3 max-h-[800px] overflow-y-auto">
+            {filteredRandomApplicants.map((applicant) => (
+              <ApplicantCard
+                key={applicant.id}
+                applicant={applicant}
+                onViewDetails={handleViewDetails}
+                onViewResume={handleViewResume}
+                onMessage={handleMessage}
+                onStatusChange={handleStatusChange}
+                showStatus={false}
+              />
+            ))}
+            {filteredRandomApplicants.length === 0 && (
+              <div className="text-center py-12">
+                <User className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No applicants found</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-lg border border-blue-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
+            <h2 className="text-2xl font-bold text-white mb-2">Points Pool</h2>
+            <p className="text-blue-100 text-sm">Priority applicants who used points</p>
+            <div className="mt-4">
+              <span className="inline-block bg-white text-blue-900 px-4 py-2 rounded-full font-bold text-lg">
+                {filteredPointsApplicants.length} Applicants
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 border-b border-gray-200">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name..."
+                value={searchPoints}
+                onChange={(e) => setSearchPoints(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3 max-h-[800px] overflow-y-auto">
+            {filteredPointsApplicants.map((applicant) => (
+              <ApplicantCard
+                key={applicant.id}
+                applicant={applicant}
+                onViewDetails={handleViewDetails}
+                onViewResume={handleViewResume}
+                onMessage={handleMessage}
+                onStatusChange={handleStatusChange}
+                showStatus={false}
+              />
+            ))}
+            {filteredPointsApplicants.length === 0 && (
+              <div className="text-center py-12">
+                <User className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                <p className="text-gray-600">No applicants found</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {showDetailsModal && selectedApplicant && (
         <DetailsModal
@@ -661,7 +589,7 @@ export default function JobApplicants() {
             setShowDetailsModal(false);
             setShowMessageModal(true);
           }}
-          onStatusChange={handleStatusChangeRequest}
+          onStatusChange={handleStatusChange}
         />
       )}
 
@@ -681,6 +609,144 @@ export default function JobApplicants() {
           onClose={() => setShowMessageModal(false)}
         />
       )}
+    </div>
+  );
+}
+
+interface ApplicantCardProps {
+  applicant: ExtendedApplicant;
+  onViewDetails: (applicant: ExtendedApplicant) => void;
+  onViewResume: (applicant: ExtendedApplicant) => void;
+  onMessage: (applicant: ExtendedApplicant) => void;
+  onStatusChange: (applicant: ExtendedApplicant, status: ApplicationStatus) => void;
+  showStatus: boolean;
+}
+
+function ApplicantCard({ applicant, onViewDetails, onViewResume, onMessage, onStatusChange, showStatus }: ApplicantCardProps) {
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const poolType = applicant.applicantType;
+
+  return (
+    <div className={`border rounded-lg p-4 hover:shadow-md transition-all ${
+      showStatus ? 'border-emerald-200 bg-emerald-50' :
+      poolType === 'points' ? 'border-blue-200 bg-blue-50' : 'border-gray-200 bg-white'
+    }`}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center space-x-3 flex-1">
+          <div className={`p-2 rounded-full ${
+            showStatus ? 'bg-emerald-100' :
+            poolType === 'points' ? 'bg-blue-100' : 'bg-gray-100'
+          }`}>
+            <User className={`h-5 w-5 ${
+              showStatus ? 'text-emerald-600' :
+              poolType === 'points' ? 'text-blue-600' : 'text-gray-600'
+            }`} />
+          </div>
+          <div className="flex-1">
+            <h3 className="font-bold text-gray-900">{applicant.name}</h3>
+            <p className="text-sm text-gray-600">
+              {applicant.age} years • {applicant.gender}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          {showStatus && (
+            <span className="text-xs font-medium text-gray-600 bg-white px-2 py-1 rounded border border-gray-200">
+              {poolType === 'points' ? `Points: ${applicant.pointsUsed}` : 'Random'}
+            </span>
+          )}
+          {poolType === 'points' && !showStatus && (
+            <span className="bg-blue-600 text-white px-2 py-1 rounded-full text-xs font-bold">
+              {applicant.pointsUsed} pts
+            </span>
+          )}
+        </div>
+      </div>
+
+      {showStatus && (
+        <div className="mb-3">
+          <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${STATUS_CONFIG[applicant.applicationStatus].bgColor} ${STATUS_CONFIG[applicant.applicationStatus].color}`}>
+            {STATUS_CONFIG[applicant.applicationStatus].label}
+          </span>
+        </div>
+      )}
+
+      <div className="space-y-2 mb-4">
+        <div className="flex items-start">
+          <Briefcase className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-gray-700">{applicant.experience}</span>
+        </div>
+        <div className="flex items-start">
+          <GraduationCap className="h-4 w-4 text-gray-400 mr-2 mt-0.5 flex-shrink-0" />
+          <span className="text-sm text-gray-700">{applicant.degree}</span>
+        </div>
+      </div>
+
+      <div className="relative mb-3">
+        <button
+          onClick={() => setShowStatusDropdown(!showStatusDropdown)}
+          className="w-full flex items-center justify-between px-3 py-2 border border-gray-200 rounded-lg hover:bg-white transition-colors text-sm font-medium"
+        >
+          <span>Change Status</span>
+          <ChevronDown className="h-4 w-4" />
+        </button>
+        {showStatusDropdown && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-60 overflow-y-auto">
+            {(Object.keys(STATUS_CONFIG) as ApplicationStatus[]).map(status => (
+              <button
+                key={status}
+                onClick={() => {
+                  onStatusChange(applicant, status);
+                  setShowStatusDropdown(false);
+                }}
+                className={`w-full text-left px-3 py-2 hover:bg-gray-50 text-sm flex items-center justify-between ${
+                  applicant.applicationStatus === status ? 'bg-gray-100' : ''
+                }`}
+              >
+                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${STATUS_CONFIG[status].bgColor} ${STATUS_CONFIG[status].color}`}>
+                  {STATUS_CONFIG[status].label}
+                </span>
+                {applicant.applicationStatus === status && (
+                  <span className="text-xs text-gray-500">Current</span>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <button
+          onClick={() => onViewResume(applicant)}
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+        >
+          <FileText className="h-4 w-4 mr-1" />
+          Resume
+        </button>
+        <button
+          onClick={() => onMessage(applicant)}
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center"
+        >
+          <MessageSquare className="h-4 w-4 mr-1" />
+          Message
+        </button>
+        <button
+          onClick={() => onViewDetails(applicant)}
+          className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+            showStatus
+              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+              : poolType === 'points'
+              ? 'bg-blue-600 hover:bg-blue-700 text-white'
+              : 'bg-gray-700 hover:bg-gray-800 text-white'
+          }`}
+        >
+          More Details
+        </button>
+      </div>
+
+      <p className="text-xs text-gray-500 mt-2">
+        Applied {new Date(applicant.appliedDate).toLocaleDateString()}
+      </p>
     </div>
   );
 }
