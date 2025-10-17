@@ -1,13 +1,11 @@
 import { ApplicantWithApplication, ApplicationStatus } from './mockData';
-import { exportStatusHistory, importStatusHistory, clearStatusHistory } from './statusHistoryApi';
 
 const STORAGE_KEYS = {
   APPLICATIONS: 'rushWorking_applications',
   APPLICANTS: 'rushWorking_applicants',
   JOBS: 'rushWorking_jobs',
   EVENTS: 'rushWorking_events',
-  POSTED_ITEMS: 'rushWorkingPostedItems',
-  STATUS_HISTORY: 'rushWorking_statusHistory'
+  POSTED_ITEMS: 'rushWorkingPostedItems'
 } as const;
 
 export function saveApplicationsForJob(jobId: string, applications: ApplicantWithApplication[]): void {
@@ -51,7 +49,6 @@ export function clearAllData(): void {
   Object.values(STORAGE_KEYS).forEach(key => {
     localStorage.removeItem(key);
   });
-  clearStatusHistory();
 }
 
 export function exportData(): string {
@@ -62,7 +59,6 @@ export function exportData(): string {
       data[key] = JSON.parse(value);
     }
   });
-  data.STATUS_HISTORY = exportStatusHistory();
   return JSON.stringify(data, null, 2);
 }
 
@@ -74,9 +70,6 @@ export function importData(jsonData: string): boolean {
         localStorage.setItem(storageKey, JSON.stringify(data[key]));
       }
     });
-    if (data.STATUS_HISTORY) {
-      importStatusHistory(data.STATUS_HISTORY);
-    }
     return true;
   } catch (error) {
     console.error('Failed to import data:', error);
