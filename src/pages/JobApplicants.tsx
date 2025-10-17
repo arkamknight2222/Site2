@@ -202,7 +202,6 @@ export default function JobApplicants() {
     );
 
     if (message) {
-      setShowMessageModal(false);
       setMessageText('');
       showToast(`Message sent to ${selectedApplicant.name}!`, 'success');
     } else {
