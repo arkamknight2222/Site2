@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, Square, X } from 'lucide-react';
+import { Upload, FolderPlus, Folder, FileText, Star, StarOff, Eye, Download, Trash2, Plus, Search, SortAsc, SortDesc, CheckSquare, Square, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
+
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface ResumeFile {
   id: string;
@@ -60,6 +65,9 @@ export default function Resume() {
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<{ type: 'folder' | 'resume'; id: string; name: string; resumesInFolder?: number } | null>(null);
   const [showBulkMoveModal, setShowBulkMoveModal] = useState(false);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   const setDefaultResume = (resumeId: string) => {
     setResumes(prev => prev.map(resume => ({
@@ -71,25 +79,41 @@ export default function Resume() {
 
   const viewResume = (resume: ResumeFile) => {
     setViewingResume(resume);
+    setPageNumber(1);
+    setNumPages(null);
+    setPdfError(null);
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPdfError(null);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('Error loading PDF:', error);
+    setPdfError('Failed to load PDF file');
+  };
+
+  const goToPrevPage = () => {
+    setPageNumber(prev => Math.max(prev - 1, 1));
+  };
+
+  const goToNextPage = () => {
+    setPageNumber(prev => Math.min(prev + 1, numPages || 1));
   };
 
   const downloadResume = (resume: ResumeFile) => {
+    if (!resume.fileContent) {
+      alert('Resume file not available');
+      return;
+    }
+
     const link = document.createElement('a');
-    link.href = '#'; // In real app, this would be the actual file URL
+    link.href = resume.fileContent;
     link.download = resume.fileName;
-    
-    // Create a mock blob for demonstration
-    const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
-    const blob = new Blob([mockContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    
-    link.href = url;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    alert(`Downloading ${resume.fileName}...`);
   };
 
   const handleConfirmDelete = () => {
@@ -184,25 +208,19 @@ export default function Resume() {
 
   const bulkDownloadResumes = () => {
     if (selectedResumes.length === 0) return;
-    
+
     selectedResumes.forEach(resumeId => {
       const resume = resumes.find(r => r.id === resumeId);
-      if (resume) {
-        // Create a mock download for each resume
-        const mockContent = `Mock resume content for ${resume.name}\nFilename: ${resume.fileName}\nUploaded: ${formatDate(resume.uploadDate)}`;
-        const blob = new Blob([mockContent], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
+      if (resume && resume.fileContent) {
         const link = document.createElement('a');
-        link.href = url;
+        link.href = resume.fileContent;
         link.download = resume.fileName;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        URL.revokeObjectURL(url);
       }
     });
-    
+
     alert(`Downloading ${selectedResumes.length} resume${selectedResumes.length !== 1 ? 's' : ''}...`);
     clearSelection();
   };
@@ -244,32 +262,39 @@ export default function Resume() {
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ];
-    
+
     if (!allowedTypes.includes(file.type)) {
       alert('Please select a PDF, DOC, or DOCX file');
       return;
     }
-    
+
     // Validate file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       alert('Resume must be smaller than 10MB');
       return;
     }
 
-    const newResume: ResumeFile = {
-      id: Date.now().toString(),
-      name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
-      fileName: file.name,
-      size: file.size,
-      uploadDate: new Date().toISOString(),
-      isDefault: resumes.length === 0, // First resume becomes default
-      folderId: selectedFolder === 'all' ? 'default' : selectedFolder,
-      url: `uploads/resumes/${Date.now()}_${file.name}`,
-      fileContent: '', // In real app, this would be the actual file content
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Content = event.target?.result as string;
+
+      const newResume: ResumeFile = {
+        id: Date.now().toString(),
+        name: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+        fileName: file.name,
+        size: file.size,
+        uploadDate: new Date().toISOString(),
+        isDefault: resumes.length === 0, // First resume becomes default
+        folderId: selectedFolder === 'all' ? 'uncategorized' : selectedFolder,
+        url: `uploads/resumes/${Date.now()}_${file.name}`,
+        fileContent: base64Content,
+      };
+
+      setResumes(prev => [newResume, ...prev]);
+      alert('Resume uploaded successfully!');
     };
 
-    setResumes(prev => [newResume, ...prev]);
-    alert('Resume uploaded successfully!');
+    reader.readAsDataURL(file);
   };
 
   const createFolder = () => {
@@ -834,53 +859,84 @@ export default function Resume() {
             </div>
 
             <div className="flex-1 overflow-y-auto bg-gray-100 p-8">
-              <div className="bg-white rounded-lg shadow-lg p-8 max-w-3xl mx-auto">
-                <div className="border-b-4 border-blue-600 pb-4 mb-6">
-                  <h1 className="text-3xl font-bold text-gray-900">{viewingResume.name}</h1>
-                  <p className="text-gray-600 mt-1">{user?.email || 'email@example.com'} • {user?.phone || '(555) 123-4567'}</p>
-                  <p className="text-gray-600">United States</p>
-                </div>
+              {viewingResume.fileContent && viewingResume.fileName.toLowerCase().endsWith('.pdf') ? (
+                <div className="flex flex-col items-center">
+                  {pdfError ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+                      <p className="text-red-600 font-semibold mb-2">Error Loading PDF</p>
+                      <p className="text-red-500 text-sm">{pdfError}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Document
+                        file={viewingResume.fileContent}
+                        onLoadSuccess={onDocumentLoadSuccess}
+                        onLoadError={onDocumentLoadError}
+                        loading={
+                          <div className="flex items-center justify-center py-16">
+                            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                          </div>
+                        }
+                      >
+                        <Page
+                          pageNumber={pageNumber}
+                          renderTextLayer={true}
+                          renderAnnotationLayer={true}
+                          className="shadow-lg"
+                          width={Math.min(window.innerWidth * 0.7, 800)}
+                        />
+                      </Document>
 
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">Education</h2>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="font-semibold text-gray-900">Bachelor's Degree in Computer Science</p>
-                    <p className="text-gray-600">University Name • 2020</p>
-                  </div>
+                      {numPages && numPages > 1 && (
+                        <div className="mt-6 flex items-center gap-4 bg-white px-6 py-3 rounded-lg shadow-md">
+                          <button
+                            onClick={goToPrevPage}
+                            disabled={pageNumber <= 1}
+                            className={`p-2 rounded-lg transition-colors ${
+                              pageNumber <= 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                            }`}
+                          >
+                            <ChevronLeft className="h-5 w-5" />
+                          </button>
+                          <span className="text-gray-700 font-medium">
+                            Page {pageNumber} of {numPages}
+                          </span>
+                          <button
+                            onClick={goToNextPage}
+                            disabled={pageNumber >= numPages}
+                            className={`p-2 rounded-lg transition-colors ${
+                              pageNumber >= numPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                            }`}
+                          >
+                            <ChevronRight className="h-5 w-5" />
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
-
-                <div className="mb-6">
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">Experience</h2>
-                  <div className="bg-gray-50 rounded-lg p-4 mb-3">
-                    <p className="font-semibold text-gray-900">Senior Position</p>
-                    <p className="text-gray-600 text-sm mb-2">Company Name • 2020 - Present</p>
-                    <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
-                      <li>Led development of key features and improvements</li>
-                      <li>Collaborated with cross-functional teams</li>
-                      <li>Mentored junior developers</li>
-                    </ul>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="font-semibold text-gray-900">Previous Position</p>
-                    <p className="text-gray-600 text-sm mb-2">Another Company • 2018 - 2020</p>
-                    <ul className="list-disc list-inside text-gray-700 space-y-1 text-sm">
-                      <li>Developed and maintained applications</li>
-                      <li>Implemented best practices</li>
-                    </ul>
-                  </div>
+              ) : (
+                <div className="bg-white rounded-lg shadow-lg p-8 max-w-3xl mx-auto text-center">
+                  <FileText className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">Preview Not Available</h3>
+                  <p className="text-gray-600 mb-6">
+                    {viewingResume.fileContent
+                      ? 'This file type cannot be previewed in the browser.'
+                      : 'No file content available for this resume.'}
+                  </p>
+                  <button
+                    onClick={() => downloadResume(viewingResume)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center"
+                  >
+                    <Download className="h-5 w-5 mr-2" />
+                    Download to View
+                  </button>
                 </div>
-
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 mb-3">Skills</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {['JavaScript', 'React', 'TypeScript', 'Node.js', 'Python', 'SQL', 'Git', 'Agile'].map(skill => (
-                      <span key={skill} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
