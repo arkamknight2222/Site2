@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Search, Filter, User, Mail, Phone, FileText, MessageSquare, X, Download, MapPin, Award, GraduationCap, Briefcase, AlertCircle, ChevronDown, CheckSquare, Square } from 'lucide-react';
-import { fetchApplicationsForJob, updateApplicationStatus, createMockApplicationsForJob } from '../lib/applicationsApi';
-import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication } from '../lib/supabase';
+import { ApplicationStatus, STATUS_CONFIG, ApplicantWithApplication, generateMockApplicationsForJob } from '../lib/mockData';
+import { getApplicationsForJob, saveApplicationsForJob, updateApplicationStatus as updateStorageStatus } from '../lib/localStorage';
 
 interface ExtendedApplicant extends ApplicantWithApplication {
   applicantType: 'random' | 'points';
@@ -37,7 +37,7 @@ export default function JobApplicants() {
     loadJobAndApplicants();
   }, [jobId]);
 
-  const loadJobAndApplicants = async () => {
+  const loadJobAndApplicants = () => {
     setLoading(true);
     const savedItems = localStorage.getItem('rushWorkingPostedItems');
     if (savedItems) {
@@ -47,15 +47,14 @@ export default function JobApplicants() {
     }
 
     try {
-      const applications = await fetchApplicationsForJob(jobId!);
+      let applications = getApplicationsForJob(jobId!);
 
       if (applications.length === 0) {
-        await createMockApplicationsForJob(jobId!, 50);
-        const newApplications = await fetchApplicationsForJob(jobId!);
-        setAllApplicants(mapApplicationsToApplicants(newApplications));
-      } else {
-        setAllApplicants(mapApplicationsToApplicants(applications));
+        applications = generateMockApplicationsForJob(jobId!, 50);
+        saveApplicationsForJob(jobId!, applications);
       }
+
+      setAllApplicants(mapApplicationsToApplicants(applications));
     } catch (error) {
       console.error('Error loading applicants:', error);
     } finally {
@@ -76,9 +75,9 @@ export default function JobApplicants() {
     }));
   };
 
-  const handleStatusChange = async (applicant: ExtendedApplicant, newStatus: ApplicationStatus) => {
+  const handleStatusChange = (applicant: ExtendedApplicant, newStatus: ApplicationStatus) => {
     try {
-      await updateApplicationStatus(applicant.applicationId, newStatus);
+      updateStorageStatus(jobId!, applicant.applicationId, newStatus);
 
       setAllApplicants(prev =>
         prev.map(a =>
