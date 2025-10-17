@@ -119,8 +119,14 @@ const mockEvents: Job[] = [
 ];
 
 export function JobProvider({ children }: { children: ReactNode }) {
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
-  const [events, setEvents] = useState<Job[]>(mockEvents);
+  const [jobs, setJobs] = useState<Job[]>(() => {
+    const saved = localStorage.getItem('rushWorking_jobs');
+    return saved ? JSON.parse(saved) : mockJobs;
+  });
+  const [events, setEvents] = useState<Job[]>(() => {
+    const saved = localStorage.getItem('rushWorking_events');
+    return saved ? JSON.parse(saved) : mockEvents;
+  });
 
   const addJob = (jobData: Omit<Job, 'id' | 'postedDate'>) => {
     const newJob: Job = {
@@ -130,9 +136,13 @@ export function JobProvider({ children }: { children: ReactNode }) {
     };
 
     if (jobData.isEvent) {
-      setEvents(prev => [newJob, ...prev]);
+      const updatedEvents = [newJob, ...events];
+      setEvents(updatedEvents);
+      localStorage.setItem('rushWorking_events', JSON.stringify(updatedEvents));
     } else {
-      setJobs(prev => [newJob, ...prev]);
+      const updatedJobs = [newJob, ...jobs];
+      setJobs(updatedJobs);
+      localStorage.setItem('rushWorking_jobs', JSON.stringify(updatedJobs));
     }
 
     return newJob;
@@ -150,23 +160,23 @@ export function JobProvider({ children }: { children: ReactNode }) {
 
   const updateJob = (id: string, updates: Partial<Job>): boolean => {
     try {
-      // Find and update in jobs array
       const jobIndex = jobs.findIndex(job => job.id === id);
       if (jobIndex !== -1) {
         const updatedJob = { ...jobs[jobIndex], ...updates };
         const newJobs = [...jobs];
         newJobs[jobIndex] = updatedJob;
         setJobs(newJobs);
+        localStorage.setItem('rushWorking_jobs', JSON.stringify(newJobs));
         return true;
       }
 
-      // Find and update in events array
       const eventIndex = events.findIndex(event => event.id === id);
       if (eventIndex !== -1) {
         const updatedEvent = { ...events[eventIndex], ...updates };
         const newEvents = [...events];
         newEvents[eventIndex] = updatedEvent;
         setEvents(newEvents);
+        localStorage.setItem('rushWorking_events', JSON.stringify(newEvents));
         return true;
       }
 
@@ -179,17 +189,19 @@ export function JobProvider({ children }: { children: ReactNode }) {
 
   const deleteJob = (id: string): boolean => {
     try {
-      // Try to delete from jobs array
       const jobExists = jobs.some(job => job.id === id);
       if (jobExists) {
-        setJobs(prevJobs => prevJobs.filter(job => job.id !== id));
+        const updatedJobs = jobs.filter(job => job.id !== id);
+        setJobs(updatedJobs);
+        localStorage.setItem('rushWorking_jobs', JSON.stringify(updatedJobs));
         return true;
       }
 
-      // Try to delete from events array
       const eventExists = events.some(event => event.id === id);
       if (eventExists) {
-        setEvents(prevEvents => prevEvents.filter(event => event.id !== id));
+        const updatedEvents = events.filter(event => event.id !== id);
+        setEvents(updatedEvents);
+        localStorage.setItem('rushWorking_events', JSON.stringify(updatedEvents));
         return true;
       }
 
