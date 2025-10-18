@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { getMessages, Message, sendMessage as sendMessageApi } from '../lib/messagesApi';
 import { updateMessage, deleteMessage } from '../lib/localMessagesApi';
 import MessageBubble from '../components/MessageBubble';
+import { createPurchase, savePurchase } from '../lib/purchaseApi';
 
 interface ApplicantMessageModalProps {
   application: any;
@@ -248,13 +249,22 @@ export default function Tracker() {
     },
   ]);
 
-  const handleBuyPoints = () => {
-    // Simulate buying points
-    const pointsToAdd = 100;
-    const currentPoints = user?.points || 0;
+  const handleBuyPoints = (pointsToAdd: number, amountPaid: number, packageName: string) => {
+    if (!user) return;
+
+    const currentPoints = user.points || 0;
     updateUser({ points: currentPoints + pointsToAdd });
-    setShowPointsModal(false);
-    showToast(`Successfully purchased ${pointsToAdd} points!`, 'success');
+
+    const purchase = createPurchase(user.id, pointsToAdd, amountPaid, packageName);
+    const saved = savePurchase(purchase);
+
+    if (saved) {
+      setShowPointsModal(false);
+      showToast(`Successfully purchased ${pointsToAdd} points!`, 'success');
+    } else {
+      showToast('Purchase completed but failed to save transaction history', 'error');
+      setShowPointsModal(false);
+    }
   };
 
   const handleAddPoints = (pointsToAdd: number) => {
@@ -533,7 +543,10 @@ export default function Tracker() {
               Purchase points to apply for more jobs and increase your visibility.
             </p>
             <div className="space-y-4 mb-6">
-              <div className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors">
+              <div
+                className="border border-gray-200 rounded-lg p-4 hover:border-blue-500 cursor-pointer transition-colors"
+                onClick={() => handleBuyPoints(100, 9.99, '100 Points Package')}
+              >
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-semibold">100 Points</p>
@@ -542,7 +555,10 @@ export default function Tracker() {
                   <p className="text-xl font-bold text-blue-600">$9.99</p>
                 </div>
               </div>
-              <div className="border border-blue-500 bg-blue-50 rounded-lg p-4 cursor-pointer">
+              <div
+                className="border border-blue-500 bg-blue-50 rounded-lg p-4 cursor-pointer"
+                onClick={() => handleBuyPoints(500, 39.99, '500 Points Package')}
+              >
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="font-semibold">500 Points</p>
@@ -554,12 +570,6 @@ export default function Tracker() {
               </div>
             </div>
             <div className="flex gap-3">
-              <button
-                onClick={handleBuyPoints}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all"
-              >
-                Purchase
-              </button>
               <button
                 onClick={() => setShowPointsModal(false)}
                 className="flex-1 border border-gray-300 text-gray-700 py-3 px-4 rounded-lg font-semibold hover:bg-gray-50 transition-colors"

@@ -1,16 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { User, Mail, Phone, Upload, Save, Edit, Camera, Building, Plus, Trash2 } from 'lucide-react';
+import { User, Mail, Phone, Upload, Save, Edit, Camera, Settings, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import ConfirmModal from '../components/ConfirmModal';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(user?.profilePicture || null);
-  const [deleteCompanyModal, setDeleteCompanyModal] = useState<{ isOpen: boolean; companyId: string | null; companyName: string }>({ isOpen: false, companyId: null, companyName: '' });
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
@@ -29,12 +27,6 @@ export default function Profile() {
   });
   
   const [newSkill, setNewSkill] = useState('');
-  const [verifiedCompanies, setVerifiedCompanies] = useState([
-    { id: '1', name: 'TechCorp Inc.', address: '123 Tech Street, San Francisco, CA 94105' },
-    { id: '2', name: 'Innovation Labs', address: '456 Innovation Ave, New York, NY 10001' }
-  ]);
-  const [newCompany, setNewCompany] = useState({ name: '', address: '' });
-  const [showAddCompany, setShowAddCompany] = useState(false);
 
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,38 +111,6 @@ export default function Profile() {
     });
   };
 
-  const addCompany = () => {
-    if (newCompany.name.trim() && newCompany.address.trim()) {
-      const company = {
-        id: Date.now().toString(),
-        name: newCompany.name.trim(),
-        address: newCompany.address.trim()
-      };
-      setVerifiedCompanies([...verifiedCompanies, company]);
-      setNewCompany({ name: '', address: '' });
-      setShowAddCompany(false);
-      showToast('Company verification submitted! It will be reviewed within 1-2 business days.', 'success');
-    }
-  };
-
-  const removeCompany = (companyId: string) => {
-    const company = verifiedCompanies.find(c => c.id === companyId);
-    if (!company) return;
-
-    setDeleteCompanyModal({
-      isOpen: true,
-      companyId: companyId,
-      companyName: company.name
-    });
-  };
-
-  const confirmRemoveCompany = () => {
-    if (!deleteCompanyModal.companyId) return;
-
-    setVerifiedCompanies(verifiedCompanies.filter(c => c.id !== deleteCompanyModal.companyId));
-    showToast('Company verification removed successfully!', 'success');
-    setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' });
-  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -469,87 +429,25 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* Company Verification Section */}
+            {/* Settings Link */}
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Job Poster Verification</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Verification ID
-                  </label>
-                  <div className="bg-gray-50 px-4 py-3 rounded-lg text-gray-900">
-                    {user?.companyId || 'Not verified'}
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Verified Companies
-                  </label>
-                  <div className="space-y-3">
-                    {verifiedCompanies.map((company) => (
-                      <div key={company.id} className="bg-gray-50 p-4 rounded-lg flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center mb-1">
-                            <Building className="h-4 w-4 text-blue-600 mr-2" />
-                            <h4 className="font-medium text-gray-900">{company.name}</h4>
-                          </div>
-                          <p className="text-sm text-gray-600">{company.address}</p>
-                        </div>
-                        <button
-                          onClick={() => removeCompany(company.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    ))}
-                    
-                    {showAddCompany ? (
-                      <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                        <div className="space-y-3">
-                          <input
-                            type="text"
-                            placeholder="Company Name"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            value={newCompany.name}
-                            onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
-                          />
-                          <input
-                            type="text"
-                            placeholder="Company Address"
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                            value={newCompany.address}
-                            onChange={(e) => setNewCompany({ ...newCompany, address: e.target.value })}
-                          />
-                          <div className="flex gap-2">
-                            <button
-                              onClick={addCompany}
-                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                            >
-                              Submit for Verification
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowAddCompany(false);
-                                setNewCompany({ name: '', address: '' });
-                              }}
-                              className="border border-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors text-sm"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => setShowAddCompany(true)}
-                        className="w-full border-2 border-dashed border-gray-300 text-gray-600 py-3 px-4 rounded-lg hover:border-blue-400 hover:text-blue-600 transition-colors flex items-center justify-center"
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start">
+                    <Settings className="h-6 w-6 text-blue-600 mr-3 mt-1" />
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">Account Settings</h3>
+                      <p className="text-sm text-gray-700 mb-4">
+                        Manage your job poster verification, purchase settings, and view your transaction history.
+                      </p>
+                      <Link
+                        to="/settings"
+                        className="inline-flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
                       >
-                        <Plus className="h-5 w-5 mr-2" />
-                        Verify Another Company
-                      </button>
-                    )}
+                        Go to Settings
+                        <ArrowRight className="h-4 w-4 ml-2" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -574,16 +472,6 @@ export default function Profile() {
         </div>
       </div>
 
-      <ConfirmModal
-        isOpen={deleteCompanyModal.isOpen}
-        title="Remove Company Verification"
-        message={`Are you sure you want to remove "${deleteCompanyModal.companyName}" from your verified companies?`}
-        confirmText="Remove"
-        cancelText="Cancel"
-        onConfirm={confirmRemoveCompany}
-        onCancel={() => setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' })}
-        variant="warning"
-      />
     </div>
   );
 }

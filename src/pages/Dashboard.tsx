@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp, TrendingDown, ArrowRight, Upload } from 'lucide-react';
+import { BarChart3, Users, Calendar, Target, Zap, Star, TrendingUp, TrendingDown, ArrowRight, Upload, Receipt } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import StatsCard from '../components/StatsCard';
 import PointsDisplay from '../components/PointsDisplay';
@@ -177,18 +177,35 @@ export default function Dashboard() {
                   Resume Manager
                 </span>
               </Link>
+              <Link
+                to="/purchase-history"
+                className="flex items-center p-3 rounded-lg bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 hover:from-green-100 hover:to-emerald-100 transition-all group"
+              >
+                <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-2 rounded-lg mr-3">
+                  <Receipt className="h-5 w-5 text-white" />
+                </div>
+                <span className="font-medium text-gray-900 group-hover:text-green-600 transition-colors">
+                  Purchase History
+                </span>
+              </Link>
             </div>
           </div>
 
           {/* Points Status */}
           <div className="bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl shadow-lg p-6 text-white mb-6">
             <PointsDisplay showDetails={false} />
-            <div className="mt-4">
+            <div className="mt-4 flex flex-col gap-2">
               <Link
                 to="/tracker"
-                className="bg-white/20 hover:bg-white/30 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm inline-block"
+                className="bg-white/20 hover:bg-white/30 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm inline-block text-center"
               >
                 Manage Points
+              </Link>
+              <Link
+                to="/purchase-history"
+                className="bg-white/20 hover:bg-white/30 text-white font-medium py-2 px-4 rounded-lg transition-all text-sm inline-block text-center"
+              >
+                View Purchases
               </Link>
             </div>
           </div>

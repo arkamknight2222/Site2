@@ -115,3 +115,17 @@ export interface Message {
   deleted_at?: string;
   deleted_by?: string;
 }
+
+export type PurchaseStatus = 'completed' | 'pending' | 'failed' | 'refunded';
+
+export interface Purchase {
+  id: string;
+  userId: string;
+  purchaseDate: string;
+  pointsPurchased: number;
+  amountPaid: number;
+  paymentMethod: string;
+  transactionId: string;
+  status: PurchaseStatus;
+  packageName?: string;
+}

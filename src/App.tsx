@@ -20,6 +20,8 @@ import Contact from './pages/Contact';
 import Privacy from './pages/Privacy';
 import PointsHistory from './pages/PointsHistory';
 import Resume from './pages/Resume';
+import Settings from './pages/Settings';
+import PurchaseHistory from './pages/PurchaseHistory';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { JobProvider } from './context/JobContext';
 import { ToastProvider } from './context/ToastContext';
@@ -58,6 +60,8 @@ function AppContent() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/points-history" element={user ? <PointsHistory /> : <Navigate to="/login" />} />
           <Route path="/resume" element={user ? <Resume /> : <Navigate to="/login" />} />
+          <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
+          <Route path="/purchase-history" element={user ? <PurchaseHistory /> : <Navigate to="/login" />} />
         </Routes>
       </main>
       <Footer />
