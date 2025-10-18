@@ -1,7 +1,183 @@
-import React, { useState } from 'react';
-import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search, X, MessageSquare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getMessages, Message, sendMessage as sendMessageApi } from '../lib/messagesApi';
+import { updateMessage, deleteMessage } from '../lib/localMessagesApi';
+import MessageBubble from '../components/MessageBubble';
+
+interface ApplicantMessageModalProps {
+  application: any;
+  onClose: () => void;
+}
+
+function ApplicantMessageModal({ application, onClose }: ApplicantMessageModalProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [messageText, setMessageText] = useState('');
+  const { showToast } = useToast();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const isScrolledToBottom = () => {
+    if (!messagesContainerRef.current) return true;
+    const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
+    return scrollHeight - scrollTop - clientHeight < 50;
+  };
+
+  useEffect(() => {
+    loadMessages();
+  }, [application.jobId, application.applicantId]);
+
+  useEffect(() => {
+    if (messages.length > 0 && !loading) {
+      scrollToBottom();
+    }
+  }, [loading]);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    const fetchedMessages = await getMessages(application.jobId, application.applicantId);
+    setMessages(fetchedMessages);
+    setLoading(false);
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) return;
+
+    const message = sendMessageApi(
+      application.jobId,
+      application.applicantId,
+      'applicant',
+      application.applicantId,
+      messageText
+    );
+
+    if (message) {
+      setMessageText('');
+      showToast('Message sent!', 'success');
+      const wasScrolledToBottom = isScrolledToBottom();
+      await loadMessages();
+
+      if (wasScrolledToBottom) {
+        setTimeout(scrollToBottom, 100);
+      }
+    } else {
+      showToast('Failed to send message. Please try again.', 'error');
+    }
+  };
+
+  const handleCopy = (content: string) => {
+    showToast('Message copied to clipboard!', 'success');
+  };
+
+  const handleEdit = async (messageId: string, newContent: string) => {
+    const success = updateMessage(messageId, newContent);
+    if (success) {
+      showToast('Message updated!', 'success');
+      await loadMessages();
+    } else {
+      showToast('Failed to update message', 'error');
+    }
+  };
+
+  const handleDelete = async (messageId: string) => {
+    const success = deleteMessage(messageId, application.applicantId);
+    if (success) {
+      showToast('Message deleted', 'success');
+      await loadMessages();
+    } else {
+      showToast('Failed to delete message', 'error');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full flex flex-col max-h-[80vh]">
+        <div className="bg-white border-b border-gray-200 p-6 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Direct Message</h2>
+            <p className="text-sm text-gray-600 mt-1">Conversation with {application.company}</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-6 bg-gray-50">
+          {loading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="text-sm text-gray-600 mt-2">Loading messages...</p>
+            </div>
+          ) : messages.length > 0 ? (
+            <div className="space-y-4">
+              {messages.map((message, index) => (
+                <MessageBubble
+                  key={message.id}
+                  message={message}
+                  isOwnMessage={message.sender_type === 'applicant'}
+                  senderName={message.sender_type === 'applicant' ? 'You' : application.company}
+                  onCopy={handleCopy}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  isLastMessage={index === messages.length - 1}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <MessageSquare className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">No messages yet. Start the conversation!</p>
+            </div>
+          )}
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-white flex-shrink-0">
+          <textarea
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            placeholder="Type your message here..."
+            className="w-full h-24 px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none mb-4"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+          />
+
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600">Press Enter to send, Shift+Enter for new line</p>
+            <div className="flex space-x-3">
+              <button
+                onClick={onClose}
+                className="border border-gray-300 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={!messageText.trim()}
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+              >
+                Send Message
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Tracker() {
   const { user, updateUser } = useAuth();
@@ -11,10 +187,13 @@ export default function Tracker() {
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
   const [showRemovePointsModal, setShowRemovePointsModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
+  const [selectedApplicationForMessage, setSelectedApplicationForMessage] = useState<any>(null);
 
   const [applications, setApplications] = useState([
     {
       id: '1',
+      jobId: 'job-1',
+      applicantId: 'applicant-123',
       jobTitle: 'Senior Frontend Developer',
       company: 'TechCorp Inc.',
       appliedDate: '2025-01-08',
@@ -27,6 +206,8 @@ export default function Tracker() {
     },
     {
       id: '2',
+      jobId: 'job-2',
+      applicantId: 'applicant-123',
       jobTitle: 'Marketing Specialist',
       company: 'Growth Labs',
       appliedDate: '2025-01-07',
@@ -39,6 +220,8 @@ export default function Tracker() {
     },
     {
       id: '3',
+      jobId: 'job-3',
+      applicantId: 'applicant-123',
       jobTitle: 'Data Analyst',
       company: 'Data Solutions LLC',
       appliedDate: '2025-01-06',
@@ -51,6 +234,8 @@ export default function Tracker() {
     },
     {
       id: '4',
+      jobId: 'job-4',
+      applicantId: 'applicant-123',
       jobTitle: 'UX Designer',
       company: 'Creative Studios',
       appliedDate: '2025-01-05',
@@ -298,7 +483,10 @@ export default function Tracker() {
                 </div>
                 <div className="mt-4 md:mt-0 md:ml-6 space-y-2 flex flex-col items-center">
                   <button
-                    onClick={() => setShowConversationModal(true)}
+                    onClick={() => {
+                      setSelectedApplicationForMessage(application);
+                      setShowConversationModal(true);
+                    }}
                     className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-blue-700 transition-all flex items-center justify-center"
                   >
                     <MessageCircle className="h-4 w-4 mr-2" />
@@ -513,48 +701,14 @@ export default function Tracker() {
         </div>
       )}
       {/* Conversations Modal */}
-      {showConversationModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full h-96 flex flex-col">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Direct Messages</h2>
-            </div>
-            <div className="flex-1 p-6 overflow-y-auto">
-              <div className="space-y-4">
-                <div className="bg-gray-100 p-4 rounded-lg">
-                  <p className="font-semibold text-gray-900 mb-1">TechCorp Inc.</p>
-                  <p className="text-sm text-gray-600">We've received your application and are reviewing it. We'll be in touch soon!</p>
-                  <p className="text-xs text-gray-400 mt-2">2 hours ago</p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <p className="font-semibold text-gray-900 mb-1">Growth Labs</p>
-                  <p className="text-sm text-gray-600">Thank you for your interest in our Marketing Specialist position. Can you tell us more about your experience with digital marketing?</p>
-                  <p className="text-xs text-gray-400 mt-2">1 day ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 border-t border-gray-200">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  placeholder="Type your message..."
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                  Send
-                </button>
-              </div>
-            </div>
-            <div className="p-4 border-t border-gray-200">
-              <button
-                onClick={() => setShowConversationModal(false)}
-                className="w-full border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
+      {showConversationModal && selectedApplicationForMessage && (
+        <ApplicantMessageModal
+          application={selectedApplicationForMessage}
+          onClose={() => {
+            setShowConversationModal(false);
+            setSelectedApplicationForMessage(null);
+          }}
+        />
       )}
     </div>
   );
