@@ -229,7 +229,7 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
   }, []);
 
   return (
-    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center' : ''}`}>
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4' : ''}`}>
       {!isFullscreen && (
         <div className="mb-6 text-center">
           <div className="flex justify-between items-center mb-4">
@@ -278,33 +278,35 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
       {isFullscreen && (
         <button
           onClick={toggleFullscreen}
-          className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-black/70 hover:bg-black/90 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+          className="absolute top-6 right-6 z-50 flex items-center gap-2 bg-gray-900/80 hover:bg-gray-900 text-white px-5 py-3 rounded-xl transition-colors font-semibold shadow-2xl"
           title="Exit Fullscreen"
         >
-          <Minimize className="h-4 w-4" />
-          Exit
+          <Minimize className="h-5 w-5" />
+          Exit Fullscreen
         </button>
       )}
 
-      <div className={`relative ${isFullscreen ? 'w-full h-full max-w-2xl' : 'h-[600px] max-w-2xl'} mx-auto flex items-center justify-center`}>
-        {filteredJobs.slice(currentIndex, currentIndex + 3).map((job, index) => {
-          const scale = 1 - index * 0.05;
-          const translateY = index * 10;
-          const zIndex = 10 - index;
+      <div className={`relative ${isFullscreen ? 'w-full h-full flex items-center justify-center' : 'h-[600px] max-w-2xl mx-auto flex items-center justify-center'}`}>
+        <div className={isFullscreen ? 'w-full max-w-4xl h-full max-h-[90vh] flex items-center justify-center' : 'w-full h-full'}>
+          {filteredJobs.slice(currentIndex, currentIndex + 3).map((job, index) => {
+            const scale = 1 - index * 0.05;
+            const translateY = index * 10;
+            const zIndex = 10 - index;
 
-          return (
-            <SwipeCard
-              key={job.id}
-              job={job}
-              onSwipe={handleSwipe}
-              isTop={index === 0}
-              style={{
-                zIndex,
-                transform: `scale(${scale}) translateY(${translateY}px)`,
-              }}
-            />
-          );
-        })}
+            return (
+              <SwipeCard
+                key={job.id}
+                job={job}
+                onSwipe={handleSwipe}
+                isTop={index === 0}
+                style={{
+                  zIndex,
+                  transform: `scale(${scale}) translateY(${translateY}px)`,
+                }}
+              />
+            );
+          })}
+        </div>
       </div>
 
       {showUndo && pendingAction && (

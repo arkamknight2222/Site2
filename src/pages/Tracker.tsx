@@ -6,6 +6,7 @@ import { getMessages, Message, sendMessage as sendMessageApi } from '../lib/mess
 import { updateMessage, deleteMessage } from '../lib/localMessagesApi';
 import MessageBubble from '../components/MessageBubble';
 import { createPurchase, savePurchase } from '../lib/purchaseApi';
+import { addPointsHistoryEntry } from '../lib/pointsHistoryApi';
 import { useJobs } from '../context/JobContext';
 import {
   getSavedJobs,
@@ -271,6 +272,15 @@ export default function Tracker() {
     const saved = savePurchase(purchase);
 
     if (saved) {
+      // Add to points history
+      addPointsHistoryEntry({
+        type: 'earned',
+        amount: pointsToAdd,
+        description: `Purchased ${packageName}`,
+        category: 'purchase',
+        userId: user.id,
+      });
+
       setShowPointsModal(false);
       showToast(`Successfully purchased ${pointsToAdd} points!`, 'success');
     } else {
@@ -280,21 +290,33 @@ export default function Tracker() {
   };
 
   const handleAddPoints = (pointsToAdd: number) => {
-    if (!selectedApplication) return;
-    
-    const currentUserPoints = user?.points || 0;
+    if (!selectedApplication || !user) return;
+
+    const currentUserPoints = user.points || 0;
     if (currentUserPoints < pointsToAdd) {
       showToast('You don\'t have enough points!', 'error');
       return;
     }
 
+    const application = applications.find(app => app.id === selectedApplication);
+    if (!application) return;
+
     // Update user points (deduct)
     updateUser({ points: currentUserPoints - pointsToAdd });
 
+    // Add to points history
+    addPointsHistoryEntry({
+      type: 'spent',
+      amount: -pointsToAdd,
+      description: `Boosted application for ${application.jobTitle} at ${application.company}`,
+      category: 'boost',
+      userId: user.id,
+    });
+
     // Update application with added points
-    setApplications(prevApps => 
-      prevApps.map(app => 
-        app.id === selectedApplication 
+    setApplications(prevApps =>
+      prevApps.map(app =>
+        app.id === selectedApplication
           ? { ...app, addedPoints: app.addedPoints + pointsToAdd }
           : app
       )
@@ -306,23 +328,32 @@ export default function Tracker() {
   };
 
   const handleRemovePoints = (pointsToRemove: number) => {
-    if (!selectedApplication) return;
-    
+    if (!selectedApplication || !user) return;
+
     const application = applications.find(app => app.id === selectedApplication);
     if (!application || application.addedPoints < pointsToRemove) {
       showToast('Cannot remove more points than you have added!', 'error');
       return;
     }
 
-    const currentUserPoints = user?.points || 0;
-    
+    const currentUserPoints = user.points || 0;
+
     // Update user points (refund)
     updateUser({ points: currentUserPoints + pointsToRemove });
 
+    // Add to points history
+    addPointsHistoryEntry({
+      type: 'earned',
+      amount: pointsToRemove,
+      description: `Refunded ${pointsToRemove} points from ${application.jobTitle} at ${application.company}`,
+      category: 'refund',
+      userId: user.id,
+    });
+
     // Update application with removed points
-    setApplications(prevApps => 
-      prevApps.map(app => 
-        app.id === selectedApplication 
+    setApplications(prevApps =>
+      prevApps.map(app =>
+        app.id === selectedApplication
           ? { ...app, addedPoints: app.addedPoints - pointsToRemove }
           : app
       )
