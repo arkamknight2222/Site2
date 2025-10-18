@@ -18,6 +18,7 @@ import {
   clearIgnoredHistory,
   removeSwipeAction,
 } from '../lib/swipeStorage';
+import StatusHistoryModal from '../components/StatusHistoryModal';
 
 interface ApplicantMessageModalProps {
   application: any;
@@ -201,8 +202,10 @@ export default function Tracker() {
   const [showConversationModal, setShowConversationModal] = useState(false);
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
   const [showRemovePointsModal, setShowRemovePointsModal] = useState(false);
+  const [showStatusHistoryModal, setShowStatusHistoryModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
   const [selectedApplicationForMessage, setSelectedApplicationForMessage] = useState<any>(null);
+  const [selectedApplicationForStatusHistory, setSelectedApplicationForStatusHistory] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   const [applications, setApplications] = useState([
@@ -403,9 +406,19 @@ export default function Tracker() {
   const ignoredJobIds = getIgnoredJobs();
   const appliedJobIds = getAppliedJobs();
 
-  const savedItems = allJobsAndEvents.filter(item => savedJobIds.includes(item.id));
-  const blockedItems = allJobsAndEvents.filter(item => blockedJobIds.includes(item.id));
-  const ignoredItems = allJobsAndEvents.filter(item => ignoredJobIds.includes(item.id));
+  const filterJobsBySearch = (items: any[]) => {
+    if (!searchQuery) return items;
+    const query = searchQuery.toLowerCase();
+    return items.filter(item =>
+      item.title.toLowerCase().includes(query) ||
+      item.company.toLowerCase().includes(query) ||
+      item.location.toLowerCase().includes(query)
+    );
+  };
+
+  const savedItems = filterJobsBySearch(allJobsAndEvents.filter(item => savedJobIds.includes(item.id)));
+  const blockedItems = filterJobsBySearch(allJobsAndEvents.filter(item => blockedJobIds.includes(item.id)));
+  const ignoredItems = filterJobsBySearch(allJobsAndEvents.filter(item => ignoredJobIds.includes(item.id)));
 
   const handleUnblock = (jobId: string) => {
     unblockJob(jobId);
@@ -608,9 +621,16 @@ export default function Tracker() {
                     </div>
                     <div className="flex items-center ml-4">
                       {getStatusIcon(application.status)}
-                      <span className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)}`}>
+                      <button
+                        onClick={() => {
+                          setSelectedApplicationForStatusHistory(application);
+                          setShowStatusHistoryModal(true);
+                        }}
+                        className={`ml-2 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(application.status)} hover:opacity-80 transition-opacity cursor-pointer`}
+                        title="View status history"
+                      >
                         {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
-                      </span>
+                      </button>
                     </div>
                   </div>
                   <div className="flex items-center text-sm text-gray-500 mb-2">
@@ -995,6 +1015,17 @@ export default function Tracker() {
           onClose={() => {
             setShowConversationModal(false);
             setSelectedApplicationForMessage(null);
+          }}
+        />
+      )}
+      {/* Status History Modal */}
+      {showStatusHistoryModal && selectedApplicationForStatusHistory && (
+        <StatusHistoryModal
+          applicationId={selectedApplicationForStatusHistory.id}
+          applicationTitle={`${selectedApplicationForStatusHistory.jobTitle} at ${selectedApplicationForStatusHistory.company}`}
+          onClose={() => {
+            setShowStatusHistoryModal(false);
+            setSelectedApplicationForStatusHistory(null);
           }}
         />
       )}

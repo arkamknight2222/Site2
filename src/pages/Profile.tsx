@@ -424,33 +424,33 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Status Information and Resume */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Status Information */}
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
-                  <div className="space-y-4 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Veteran Status:</span>
-                      <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
-                        {formData.isVeteran ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Citizenship:</span>
-                      <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
-                        {formData.isCitizen ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Background Check:</span>
-                      <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
-                        {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
-                      </span>
-                    </div>
+              {/* Status Information */}
+              <div className="bg-gray-50 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
+                <div className="space-y-4 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Veteran Status:</span>
+                    <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
+                      {formData.isVeteran ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Citizenship:</span>
+                    <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
+                      {formData.isCitizen ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Background Check:</span>
+                    <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
+                      {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
+                    </span>
                   </div>
                 </div>
+              </div>
 
+              {/* Resume and Settings Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Resume */}
                 <div className="bg-gray-50 rounded-lg p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Resume</h3>
@@ -471,13 +471,9 @@ export default function Profile() {
                     </Link>
                   </div>
                 </div>
-              </div>
-            </div>
 
-            {/* Settings Link */}
-            <div>
-              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200">
-                <div className="flex items-start justify-between">
+                {/* Account Settings */}
+                <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
                   <div className="flex items-start">
                     <Settings className="h-6 w-6 text-blue-600 mr-3 mt-1" />
                     <div>

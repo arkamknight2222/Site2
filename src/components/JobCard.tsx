@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Clock, DollarSign, Users, Star, Zap, Send, Bookmark, Ban } from 'lucide-react';
 import { Job } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { blockJob, addSwipeAction } from '../lib/swipeStorage';
+import { blockJob, addSwipeAction, removeSwipeAction, isJobSaved, getAppliedJobs } from '../lib/swipeStorage';
 
 interface JobCardProps {
   job: Job;
@@ -16,25 +16,47 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
   const { user } = useAuth();
   const { showToast } = useToast();
   const canAfford = !user || user.points >= job.minimumPoints;
+  const [isSaved, setIsSaved] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+  const [isApplied, setIsApplied] = useState(false);
+
+  useEffect(() => {
+    setIsSaved(isJobSaved(job.id));
+    setIsApplied(getAppliedJobs().includes(job.id));
+  }, [job.id]);
 
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    addSwipeAction({
-      jobId: job.id,
-      actionType: 'saved',
-      timestamp: Date.now(),
-      userId: user?.id,
-    });
-    showToast(`${job.isEvent ? 'Event' : 'Job'} saved to your favorites!`, 'success');
+
+    if (isSaved) {
+      removeSwipeAction(job.id, 'saved');
+      setIsSaved(false);
+      showToast(`${job.isEvent ? 'Event' : 'Job'} removed from favorites`, 'info');
+    } else {
+      addSwipeAction({
+        jobId: job.id,
+        actionType: 'saved',
+        timestamp: Date.now(),
+        userId: user?.id,
+      });
+      setIsSaved(true);
+      showToast(`${job.isEvent ? 'Event' : 'Job'} saved to your favorites!`, 'success');
+    }
   };
 
-  const handleBlock = (e: React.MouseEvent) => {
+  const handleBlock = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    setIsBlocking(true);
     blockJob(job.id);
     showToast(`${job.isEvent ? 'Event' : 'Job'} blocked. It will no longer appear.`, 'warning');
-    window.location.reload();
+
+    setTimeout(() => {
+      setIsBlocking(false);
+      window.location.reload();
+    }, 100);
   };
 
   const handleQuickApply = (e: React.MouseEvent) => {
@@ -42,8 +64,13 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
     e.stopPropagation();
     if (onQuickApply && canAfford) {
       onQuickApply(job.id);
+      setIsApplied(true);
     }
   };
+
+  if (isApplied && !showPoints) {
+    return null;
+  }
 
   return (
     <div
@@ -71,14 +98,15 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
               <div className="ml-auto flex gap-2">
                 <button
                   onClick={handleSave}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
-                  title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+                  className={`${isSaved ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'} hover:bg-blue-200 p-2 rounded-lg transition-colors`}
+                  title={isSaved ? 'Remove from favorites' : 'Save to favorites'}
                 >
-                  <Bookmark className="h-4 w-4" />
+                  <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
                 </button>
                 <button
                   onClick={handleBlock}
-                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                  disabled={isBlocking}
+                  className={`bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors ${isBlocking ? 'opacity-50 cursor-not-allowed' : ''}`}
                   title={`Block this ${job.isEvent ? 'event' : 'job'}`}
                 >
                   <Ban className="h-4 w-4" />
@@ -129,14 +157,15 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
             <div className="absolute top-4 right-4 z-10 flex gap-2">
               <button
                 onClick={handleSave}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
-                title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+                className={`${isSaved ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600'} hover:bg-blue-200 p-2 rounded-lg transition-colors`}
+                title={isSaved ? 'Remove from favorites' : 'Save to favorites'}
               >
-                <Bookmark className="h-4 w-4" />
+                <Bookmark className={`h-4 w-4 ${isSaved ? 'fill-current' : ''}`} />
               </button>
               <button
                 onClick={handleBlock}
-                className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                disabled={isBlocking}
+                className={`bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors ${isBlocking ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title={`Block this ${job.isEvent ? 'event' : 'job'}`}
               >
                 <Ban className="h-4 w-4" />

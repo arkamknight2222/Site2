@@ -164,7 +164,7 @@ export default function Hire() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!user?.isVerified) {
       showToast('You need to verify your company information first!', 'warning');
       return;
@@ -182,12 +182,12 @@ export default function Hire() {
         minimumPoints: 0,
         featured: false,
       });
-      
+
       if (success) {
         // Update local posted items
-        setAllPostedItems(prevItems => 
-          prevItems.map(item => 
-            item.id === editingJob.id 
+        setAllPostedItems(prevItems =>
+          prevItems.map(item =>
+            item.id === editingJob.id
               ? {
                   ...item,
                   title: formData.title,
@@ -202,7 +202,7 @@ export default function Hire() {
           )
         );
       }
-      
+
       showToast('Job updated successfully!', 'success');
     } else {
       // Create new job
@@ -218,7 +218,7 @@ export default function Hire() {
       };
 
       const newJob = addJob(jobData);
-      
+
       // Add to local posted items for "Your Posts" section
       const newPostedItem = {
         id: newJob.id,
@@ -232,15 +232,25 @@ export default function Hire() {
         eventDate: newJob.eventDate,
         requiresApplication: newJob.requiresApplication !== false,
       };
-      
+
       setAllPostedItems(prevItems => [newPostedItem, ...prevItems]);
-      
+
+      // Track purchase for job/event posting
+      const postingCost = formData.isEvent ? 0.50 : 1.00;
+      const purchase = createPurchase(
+        user.id,
+        0,
+        postingCost,
+        `${formData.isEvent ? 'Event' : 'Job'} Posting: ${formData.title}`
+      );
+      savePurchase(purchase);
+
       showToast(`${formData.isEvent ? 'Event' : 'Job'} posted successfully! $${formData.isEvent ? '0.50' : '1.00'} has been charged to your account.`, 'success');
     }
-    
+
     setShowPostForm(false);
     setEditingJob(null);
-    
+
     // Reset form
     setFormData({
       title: '',

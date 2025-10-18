@@ -67,59 +67,67 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
   }, [pendingAction]);
 
   const commitAction = (action: PendingAction) => {
-    const { jobId, action: direction } = action;
-    const job = filteredJobs.find(j => j.id === jobId);
-    if (!job) return;
+    try {
+      const { jobId, action: direction } = action;
+      const job = filteredJobs.find(j => j.id === jobId);
+      if (!job) {
+        console.warn('Job not found for commit action:', jobId);
+        return;
+      }
 
-    switch (direction) {
-      case 'left':
-        addSwipeAction({
-          jobId,
-          actionType: 'ignored',
-          timestamp: Date.now(),
-          userId: user?.id,
-        });
-        showToast(`${job.isEvent ? 'Event' : 'Job'} ignored`, 'info');
-        break;
-      case 'right':
-        addSwipeAction({
-          jobId,
-          actionType: 'applied',
-          timestamp: Date.now(),
-          userId: user?.id,
-        });
-        if (user) {
-          const currentPoints = user.points || 0;
-          updateUser({ points: currentPoints + 10 });
-          addPointsHistoryEntry({
-            type: 'earned',
-            amount: 10,
-            description: `Applied to ${job.title} at ${job.company}`,
-            category: job.isEvent ? 'event' : 'application',
-            userId: user.id,
+      switch (direction) {
+        case 'left':
+          addSwipeAction({
+            jobId,
+            actionType: 'ignored',
+            timestamp: Date.now(),
+            userId: user?.id,
           });
-        }
-        if (onApply) onApply(jobId);
-        showToast(`Application submitted! You earned 10 points.`, 'success');
-        break;
-      case 'up':
-        addSwipeAction({
-          jobId,
-          actionType: 'saved',
-          timestamp: Date.now(),
-          userId: user?.id,
-        });
-        showToast(`${job.isEvent ? 'Event' : 'Job'} saved for later`, 'success');
-        break;
-      case 'down':
-        addSwipeAction({
-          jobId,
-          actionType: 'blocked',
-          timestamp: Date.now(),
-          userId: user?.id,
-        });
-        showToast(`${job.isEvent ? 'Event' : 'Job'} blocked permanently`, 'warning');
-        break;
+          showToast(`${job.isEvent ? 'Event' : 'Job'} ignored`, 'info');
+          break;
+        case 'right':
+          addSwipeAction({
+            jobId,
+            actionType: 'applied',
+            timestamp: Date.now(),
+            userId: user?.id,
+          });
+          if (user) {
+            const currentPoints = user.points || 0;
+            updateUser({ points: currentPoints + 10 });
+            addPointsHistoryEntry({
+              type: 'earned',
+              amount: 10,
+              description: `Applied to ${job.title} at ${job.company}`,
+              category: job.isEvent ? 'event' : 'application',
+              userId: user.id,
+            });
+          }
+          if (onApply) onApply(jobId);
+          showToast(`Application submitted! You earned 10 points.`, 'success');
+          break;
+        case 'up':
+          addSwipeAction({
+            jobId,
+            actionType: 'saved',
+            timestamp: Date.now(),
+            userId: user?.id,
+          });
+          showToast(`${job.isEvent ? 'Event' : 'Job'} saved for later`, 'success');
+          break;
+        case 'down':
+          addSwipeAction({
+            jobId,
+            actionType: 'blocked',
+            timestamp: Date.now(),
+            userId: user?.id,
+          });
+          showToast(`${job.isEvent ? 'Event' : 'Job'} blocked permanently`, 'warning');
+          break;
+      }
+    } catch (error) {
+      console.error('Error committing action:', error);
+      showToast('An error occurred. Please try again.', 'error');
     }
   };
 
@@ -138,15 +146,27 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
     }
 
     setAnimatingOut(true);
-    setPendingAction({
+    const pendingActionData = {
       jobId: currentJob.id,
       action: direction,
       timestamp: Date.now(),
-    });
+    };
+    setPendingAction(pendingActionData);
 
     setTimeout(() => {
-      setCurrentIndex(prev => prev + 1);
-      setAnimatingOut(false);
+      try {
+        setCurrentIndex(prev => {
+          const nextIndex = prev + 1;
+          if (nextIndex >= filteredJobs.length) {
+            return prev;
+          }
+          return nextIndex;
+        });
+        setAnimatingOut(false);
+      } catch (error) {
+        console.error('Error in swipe animation:', error);
+        setAnimatingOut(false);
+      }
     }, 300);
   };
 
@@ -235,7 +255,7 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
   }, []);
 
   return (
-    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center' : ''}`}>
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-[9999] bg-white flex items-center justify-center' : ''}`}>
       {!isFullscreen && (
         <div className="mb-6 text-center">
           <div className="flex justify-between items-center mb-4">

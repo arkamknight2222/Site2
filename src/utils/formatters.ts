@@ -20,13 +20,24 @@ export const formatRelativeTime = (date: string | Date): string => {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   const now = new Date();
   const diffInMs = now.getTime() - dateObj.getTime();
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
-  
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  const diffInMonths = Math.floor(diffInDays / 30);
+
+  if (diffInMinutes < 1) return 'Just now';
+  if (diffInMinutes === 1) return '1 minute ago';
+  if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+  if (diffInHours === 1) return '1 hour ago';
+  if (diffInHours < 24) return `${diffInHours} hours ago`;
   if (diffInDays === 0) return 'Today';
   if (diffInDays === 1) return 'Yesterday';
   if (diffInDays < 7) return `${diffInDays} days ago`;
-  if (diffInDays < 30) return `${Math.floor(diffInDays / 7)} weeks ago`;
-  return `${Math.floor(diffInDays / 30)} months ago`;
+  if (diffInWeeks === 1) return '1 week ago';
+  if (diffInDays < 30) return `${diffInWeeks} weeks ago`;
+  if (diffInMonths === 1) return '1 month ago';
+  return `${diffInMonths} months ago`;
 };
 
 export const formatPoints = (points: number): string => {

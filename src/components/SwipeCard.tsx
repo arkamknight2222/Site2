@@ -128,15 +128,18 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false, isF
   return (
     <div
       ref={cardRef}
-      className={`absolute ${isFullscreen ? 'inset-0' : 'w-full'} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden select-none ${
+      className={`${isFullscreen ? 'fixed inset-0 rounded-none' : 'absolute w-full rounded-2xl'} bg-white shadow-2xl border border-gray-200 overflow-hidden select-none ${
         isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'
       }`}
       style={{
-        ...style,
-        transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${rotation}deg)`,
-        opacity,
+        ...(!isFullscreen ? style : {}),
+        transform: isFullscreen ? 'none' : `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${rotation}deg)`,
+        opacity: isFullscreen ? 1 : opacity,
         transition: isDragging ? 'none' : 'all 0.3s ease-out',
-        maxHeight: isFullscreen ? '100%' : undefined,
+        height: isFullscreen ? '100vh' : '600px',
+        minHeight: isFullscreen ? '100vh' : '600px',
+        maxHeight: isFullscreen ? '100vh' : '600px',
+        zIndex: isFullscreen ? 9999 : style.zIndex,
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
