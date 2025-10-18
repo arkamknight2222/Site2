@@ -129,3 +129,42 @@ export interface Purchase {
   status: PurchaseStatus;
   packageName?: string;
 }
+
+export interface CompanyReview {
+  id: string;
+  companyName: string;
+  userId: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  applicantStatus: 'not_applied' | 'applied' | 'interviewed' | 'hired' | 'rejected';
+  jobTitle?: string;
+  createdAt: string;
+}
+
+export interface CompanyStatistics {
+  hired: number;
+  interviewed: number;
+  rejected: number;
+  totalJobPosts: number;
+  averageSalary: number;
+  totalReviews: number;
+  averageRating: number;
+}
+
+export interface Company {
+  name: string;
+  logo?: string;
+  biography: string;
+  addresses: string[];
+  website?: string;
+  industry?: string;
+  foundedYear?: number;
+  companySize?: string;
+  statistics: CompanyStatistics;
+  reviews: CompanyReview[];
+  jobPostings: string[];
+  eventPostings: string[];
+  isBlocked?: boolean;
+  reportCount?: number;
+}

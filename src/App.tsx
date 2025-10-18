@@ -22,6 +22,7 @@ import PointsHistory from './pages/PointsHistory';
 import Resume from './pages/Resume';
 import Settings from './pages/Settings';
 import PurchaseHistory from './pages/PurchaseHistory';
+import CompanyProfile from './pages/CompanyProfile';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { JobProvider } from './context/JobContext';
 import { ToastProvider } from './context/ToastContext';
@@ -62,6 +63,7 @@ function AppContent() {
           <Route path="/resume" element={user ? <Resume /> : <Navigate to="/login" />} />
           <Route path="/settings" element={user ? <Settings /> : <Navigate to="/login" />} />
           <Route path="/purchase-history" element={user ? <PurchaseHistory /> : <Navigate to="/login" />} />
+          <Route path="/company/:companyName" element={<CompanyProfile />} />
         </Routes>
       </main>
       <Footer />

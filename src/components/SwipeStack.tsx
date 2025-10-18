@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw, Trash2 } from 'lucide-react';
+import { RotateCcw, Trash2, Maximize, Minimize } from 'lucide-react';
 import SwipeCard from './SwipeCard';
 import { Job } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import {
   getIgnoredJobs,
   getAppliedJobs
 } from '../lib/swipeStorage';
+import { addPointsHistoryEntry } from '../lib/pointsHistoryApi';
 
 interface SwipeStackProps {
   jobs: Job[];
@@ -27,6 +28,7 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
   const [animatingOut, setAnimatingOut] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [showUndo, setShowUndo] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
 
@@ -81,6 +83,13 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
         if (user) {
           const currentPoints = user.points || 0;
           updateUser({ points: currentPoints + 10 });
+          addPointsHistoryEntry({
+            type: 'earned',
+            amount: 10,
+            description: `Applied to ${job.title} at ${job.company}`,
+            category: job.isEvent ? 'event' : 'application',
+            userId: user.id,
+          });
         }
         if (onApply) onApply(jobId);
         showToast(`Application submitted! You earned 10 points.`, 'success');
@@ -189,20 +198,58 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
     }
   };
 
+  const toggleFullscreen = async () => {
+    try {
+      if (!isFullscreen) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen();
+        }
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+      showToast('Unable to toggle fullscreen mode', 'error');
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, []);
+
   return (
-    <div className="relative">
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col p-4' : ''}`}>
       <div className="mb-6 text-center">
         <div className="flex justify-between items-center mb-4">
           <p className="text-lg font-semibold text-gray-700">
             {remainingCount} {remainingCount === 1 ? 'job' : 'jobs'} remaining
           </p>
-          <button
-            onClick={handleClearHistory}
-            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-          >
-            <Trash2 className="h-4 w-4" />
-            Clear History
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </button>
+            <button
+              onClick={handleClearHistory}
+              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+            >
+              <Trash2 className="h-4 w-4" />
+              Clear History
+            </button>
+          </div>
         </div>
         <div className="mt-2 flex justify-center gap-6 text-sm text-gray-600">
           <div className="flex items-center gap-2">
@@ -224,7 +271,7 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
         </div>
       </div>
 
-      <div className="relative h-[600px] max-w-2xl mx-auto">
+      <div className={`relative ${isFullscreen ? 'flex-1 max-w-full' : 'h-[600px] max-w-2xl'} mx-auto`}>
         {filteredJobs.slice(currentIndex, currentIndex + 3).map((job, index) => {
           const scale = 1 - index * 0.05;
           const translateY = index * 10;

@@ -10,6 +10,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useToast } from '../context/ToastContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getBlockedJobs, getAppliedJobs } from '../lib/swipeStorage';
+import { addPointsHistoryEntry } from '../lib/pointsHistoryApi';
 
 export default function JobFinder() {
   const { jobs } = useJobs();
@@ -71,9 +72,21 @@ export default function JobFinder() {
       return;
     }
 
+    const job = jobs.find(j => j.id === jobId);
+    if (!job) return;
+
     // Award 10 points for applying
     const currentPoints = user.points || 0;
     updateUser({ points: currentPoints + 10 });
+
+    // Add to points history
+    addPointsHistoryEntry({
+      type: 'earned',
+      amount: 10,
+      description: `Applied to ${job.title} at ${job.company}`,
+      category: job.isEvent ? 'event' : 'application',
+      userId: user.id,
+    });
 
     // Simulate quick application
     showToast('Application submitted successfully! You earned 10 points. You can track it in your dashboard.', 'success');

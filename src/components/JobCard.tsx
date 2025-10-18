@@ -51,7 +51,7 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
         job.featured ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50' : 'border-gray-100'
       } ${!canAfford ? 'opacity-60' : ''}`}
     >
-      
+
       <div className="flex flex-col md:flex-row md:items-center justify-between">
         <div className="flex-1 pr-20">
           <div className="flex items-center mb-2">
@@ -67,8 +67,32 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
                 Need {job.minimumPoints - (user?.points || 0)} more points
               </span>
             )}
+            {!job.isEvent && (
+              <div className="ml-auto flex gap-2">
+                <button
+                  onClick={handleSave}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
+                  title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+                >
+                  <Bookmark className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleBlock}
+                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                  title={`Block this ${job.isEvent ? 'event' : 'job'}`}
+                >
+                  <Ban className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
-          <p className="text-lg text-gray-700 font-medium mb-2">{job.company}</p>
+          <Link
+            to={`/company/${encodeURIComponent(job.company)}`}
+            className="text-lg text-gray-700 font-medium mb-2 hover:text-blue-600 transition-colors inline-block"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {job.company}
+          </Link>
           <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mb-3">
             <div className="flex items-center">
               <MapPin className="h-4 w-4 mr-1" />
@@ -101,22 +125,24 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
               </div>
             </div>
           )}
-          <div className="absolute top-4 right-4 z-10 flex gap-2">
-            <button
-              onClick={handleSave}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
-              title={`Save this ${job.isEvent ? 'event' : 'job'}`}
-            >
-              <Bookmark className="h-4 w-4" />
-            </button>
-            <button
-              onClick={handleBlock}
-              className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
-              title={`Block this ${job.isEvent ? 'event' : 'job'}`}
-            >
-              <Ban className="h-4 w-4" />
-            </button>
-          </div>
+          {job.isEvent && (
+            <div className="absolute top-4 right-4 z-10 flex gap-2">
+              <button
+                onClick={handleSave}
+                className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
+                title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+              >
+                <Bookmark className="h-4 w-4" />
+              </button>
+              <button
+                onClick={handleBlock}
+                className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                title={`Block this ${job.isEvent ? 'event' : 'job'}`}
+              >
+                <Ban className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           <div className={`${job.isEvent && job.requiresApplication && onQuickApply ? 'flex flex-col gap-2 w-full' : 'flex gap-2'}`}>
             {job.isEvent && job.requiresApplication && onQuickApply && (
               <button

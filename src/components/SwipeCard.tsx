@@ -161,7 +161,13 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
         )}
 
         <h2 className="text-3xl font-bold text-gray-900 mb-2">{job.title}</h2>
-        <p className="text-xl text-gray-700 font-medium mb-4">{job.company}</p>
+        <Link
+          to={`/company/${encodeURIComponent(job.company)}`}
+          className="text-xl text-gray-700 font-medium mb-4 hover:text-blue-600 transition-colors inline-block"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {job.company}
+        </Link>
 
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="flex items-center bg-gray-100 px-3 py-2 rounded-lg">
