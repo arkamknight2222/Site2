@@ -34,11 +34,11 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
 
-  const filteredJobs = jobs.filter(job => {
-    const blocked = getBlockedJobs();
-    const ignored = getIgnoredJobs();
-    const applied = getAppliedJobs();
+  const blocked = getBlockedJobs();
+  const ignored = getIgnoredJobs();
+  const applied = getAppliedJobs();
 
+  const filteredJobs = jobs.filter(job => {
     return !blocked.includes(job.id) &&
            !ignored.includes(job.id) &&
            !applied.includes(job.id);
@@ -46,6 +46,12 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
 
   const currentJob = filteredJobs[currentIndex];
   const remainingCount = filteredJobs.length - currentIndex;
+
+  useEffect(() => {
+    if (currentIndex > 0 && currentIndex >= filteredJobs.length && filteredJobs.length > 0) {
+      setCurrentIndex(0);
+    }
+  }, [filteredJobs.length, currentIndex]);
 
   useEffect(() => {
     if (pendingAction) {
@@ -229,7 +235,7 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
   }, []);
 
   return (
-    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4' : ''}`}>
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center' : ''}`}>
       {!isFullscreen && (
         <div className="mb-6 text-center">
           <div className="flex justify-between items-center mb-4">
@@ -278,7 +284,7 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
       {isFullscreen && (
         <button
           onClick={toggleFullscreen}
-          className="absolute top-6 right-6 z-50 flex items-center gap-2 bg-gray-900/80 hover:bg-gray-900 text-white px-5 py-3 rounded-xl transition-colors font-semibold shadow-2xl"
+          className="absolute top-8 right-8 z-50 flex items-center gap-2 bg-white/90 hover:bg-white text-gray-900 px-6 py-3 rounded-xl transition-colors font-semibold shadow-2xl"
           title="Exit Fullscreen"
         >
           <Minimize className="h-5 w-5" />
@@ -286,9 +292,9 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
         </button>
       )}
 
-      <div className={`relative ${isFullscreen ? 'w-full h-full flex items-center justify-center' : 'h-[600px] max-w-2xl mx-auto flex items-center justify-center'}`}>
-        <div className={isFullscreen ? 'w-full max-w-4xl h-full max-h-[90vh] flex items-center justify-center' : 'w-full h-full'}>
-          {filteredJobs.slice(currentIndex, currentIndex + 3).map((job, index) => {
+      <div className={`relative ${isFullscreen ? 'w-full h-full max-w-6xl mx-auto p-8 flex items-center justify-center' : 'h-[600px] max-w-2xl mx-auto flex items-center justify-center'}`}>
+        <div className={isFullscreen ? 'w-full h-full' : 'w-full h-full'}>
+          {currentJob && filteredJobs.slice(currentIndex, currentIndex + (remainingCount > 1 ? 3 : 1)).map((job, index) => {
             const scale = 1 - index * 0.05;
             const translateY = index * 10;
             const zIndex = 10 - index;
@@ -299,6 +305,7 @@ export default function SwipeStack({ jobs, onApply, filters, setFilters }: Swipe
                 job={job}
                 onSwipe={handleSwipe}
                 isTop={index === 0}
+                isFullscreen={isFullscreen}
                 style={{
                   zIndex,
                   transform: `scale(${scale}) translateY(${translateY}px)`,

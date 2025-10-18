@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search, X, MessageSquare, Bookmark, Ban, History, RotateCcw } from 'lucide-react';
+import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search, X, MessageSquare, Bookmark, Ban, History, RotateCcw, Trash2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getMessages, Message, sendMessage as sendMessageApi } from '../lib/messagesApi';
@@ -202,6 +203,7 @@ export default function Tracker() {
   const [showRemovePointsModal, setShowRemovePointsModal] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState<string | null>(null);
   const [selectedApplicationForMessage, setSelectedApplicationForMessage] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [applications, setApplications] = useState([
     {
@@ -425,6 +427,26 @@ export default function Tracker() {
     showToast('Job removed from saved', 'success');
   };
 
+  const handleDeleteApplication = (applicationId: string) => {
+    const application = applications.find(app => app.id === applicationId);
+    if (!application) return;
+
+    if (window.confirm(`Are you sure you want to delete the application for ${application.jobTitle} at ${application.company}?`)) {
+      setApplications(applications.filter(app => app.id !== applicationId));
+      showToast('Application deleted successfully', 'success');
+    }
+  };
+
+  const filteredApplications = applications.filter(app => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      app.jobTitle.toLowerCase().includes(query) ||
+      app.company.toLowerCase().includes(query) ||
+      app.status.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -501,6 +523,8 @@ export default function Tracker() {
             <input
               type="text"
               placeholder="Search applications..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
@@ -563,16 +587,24 @@ export default function Tracker() {
             <h2 className="text-xl font-bold text-gray-900">Your Applications</h2>
           </div>
           <div className="divide-y divide-gray-200">
-          {applications.map((application) => (
+          {filteredApplications.map((application) => (
             <div key={application.id} className="p-6 hover:bg-gray-50 transition-colors">
               <div className="flex flex-col md:flex-row md:items-center justify-between">
                 <div className="flex-1 mb-4 md:mb-0">
                   <div className="flex items-start justify-between mb-2">
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                      <Link
+                        to={`/job/${application.jobId}`}
+                        className="text-lg font-semibold text-gray-900 mb-1 hover:text-blue-600 transition-colors inline-block"
+                      >
                         {application.jobTitle}
-                      </h3>
-                      <p className="text-gray-600">{application.company}</p>
+                      </Link>
+                      <Link
+                        to={`/company/${encodeURIComponent(application.company)}`}
+                        className="text-gray-600 hover:text-blue-600 transition-colors block mt-1"
+                      >
+                        {application.company}
+                      </Link>
                     </div>
                     <div className="flex items-center ml-4">
                       {getStatusIcon(application.status)}
@@ -650,6 +682,13 @@ export default function Tracker() {
                   >
                     <Zap className="h-4 w-4 mr-2" />
                     Remove Points
+                  </button>
+                  <button
+                    onClick={() => handleDeleteApplication(application.id)}
+                    className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-700 transition-all flex items-center justify-center"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Application
                   </button>
                 </div>
               </div>

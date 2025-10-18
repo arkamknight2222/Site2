@@ -9,9 +9,10 @@ interface SwipeCardProps {
   onSwipe: (direction: 'left' | 'right' | 'up' | 'down') => void;
   style?: React.CSSProperties;
   isTop?: boolean;
+  isFullscreen?: boolean;
 }
 
-export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: SwipeCardProps) {
+export default function SwipeCard({ job, onSwipe, style = {}, isTop = false, isFullscreen = false }: SwipeCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
@@ -127,7 +128,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
   return (
     <div
       ref={cardRef}
-      className={`absolute w-full bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden select-none ${
+      className={`absolute ${isFullscreen ? 'inset-0' : 'w-full'} bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden select-none ${
         isTop ? 'cursor-grab active:cursor-grabbing' : 'pointer-events-none'
       }`}
       style={{
@@ -135,6 +136,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
         transform: `translate(${dragOffset.x}px, ${dragOffset.y}px) rotate(${rotation}deg)`,
         opacity,
         transition: isDragging ? 'none' : 'all 0.3s ease-out',
+        maxHeight: isFullscreen ? '100%' : undefined,
       }}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
@@ -150,7 +152,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
         </div>
       )}
 
-      <div className="p-6 h-full overflow-y-auto pb-28">
+      <div className={`${isFullscreen ? 'p-8' : 'p-6'} h-full overflow-y-auto pb-28`}>
         {job.featured && (
           <div className="mb-4 flex items-center justify-center">
             <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center">

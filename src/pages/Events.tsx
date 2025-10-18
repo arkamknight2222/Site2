@@ -10,6 +10,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { useToast } from '../context/ToastContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { getBlockedJobs, getAppliedJobs } from '../lib/swipeStorage';
+import { addPointsHistoryEntry } from '../lib/pointsHistoryApi';
 
 export default function Events() {
   const { events } = useJobs();
@@ -60,9 +61,21 @@ export default function Events() {
       return;
     }
 
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
     // Award 10 points for registering
     const currentPoints = user.points || 0;
     updateUser({ points: currentPoints + 10 });
+
+    // Add to points history
+    addPointsHistoryEntry({
+      type: 'earned',
+      amount: 10,
+      description: `Registered for ${event.title} at ${event.company}`,
+      category: 'event',
+      userId: user.id,
+    });
 
     // Simulate quick registration
     showToast('Registration successful! You earned 10 points. Check your email for event details.', 'success');

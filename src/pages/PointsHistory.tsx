@@ -33,6 +33,8 @@ export default function PointsHistory() {
         return '📅';
       case 'purchase':
         return '💳';
+      case 'refund':
+        return '💰';
       default:
         return '⭐';
     }

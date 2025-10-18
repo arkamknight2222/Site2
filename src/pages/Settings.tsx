@@ -188,7 +188,12 @@ export default function Settings() {
                     <div className="flex-1">
                       <div className="flex items-center mb-1">
                         <Building className="h-4 w-4 text-blue-600 mr-2" />
-                        <h4 className="font-medium text-gray-900">{company.name}</h4>
+                        <Link
+                          to={`/company/${encodeURIComponent(company.name)}`}
+                          className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                        >
+                          {company.name}
+                        </Link>
                       </div>
                       <p className="text-sm text-gray-600">{company.address}</p>
                     </div>
