@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, Zap } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Users, Star, Building, Calendar, ArrowLeft, Zap, Ban, Bookmark } from 'lucide-react';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import ResumeSelector from '../components/ResumeSelector';
 import { useToast } from '../context/ToastContext';
+import { blockJob, addSwipeAction } from '../lib/swipeStorage';
 
 export default function JobDetails() {
   const { id } = useParams();
@@ -66,7 +67,7 @@ export default function JobDetails() {
 
   const submitApplication = async (resume: any) => {
     setIsApplying(true);
-    
+
     // Simulate API call
     setTimeout(() => {
       const success = applyToJob(job.id, user.id);
@@ -81,6 +82,24 @@ export default function JobDetails() {
       setShowResumeSelector(false);
       setSelectedResume(null);
     }, 1000);
+  };
+
+  const handleSave = () => {
+    addSwipeAction({
+      jobId: job.id,
+      actionType: 'saved',
+      timestamp: Date.now(),
+      userId: user?.id,
+    });
+    showToast('Job saved to your favorites!', 'success');
+  };
+
+  const handleBlock = () => {
+    if (confirm('Are you sure you want to block this job? It will no longer appear in any view.')) {
+      blockJob(job.id);
+      showToast('Job blocked. It will no longer appear.', 'warning');
+      window.location.href = '/jobs';
+    }
   };
 
   return (
@@ -100,12 +119,20 @@ export default function JobDetails() {
         <div className={`p-8 ${job.featured ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-b border-blue-200' : 'border-b border-gray-200'}`}>
           <div className="flex flex-col md:flex-row md:items-start justify-between mb-6">
             <div className="flex-1">
-              {/* Save Button */}
-              <div className="flex justify-end mb-4">
-                <button className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors">
-                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-                  </svg>
+              <div className="flex justify-end gap-2 mb-4">
+                <button
+                  onClick={handleSave}
+                  className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
+                  title="Save this job"
+                >
+                  <Bookmark className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={handleBlock}
+                  className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+                  title="Block this job"
+                >
+                  <Ban className="h-5 w-5" />
                 </button>
               </div>
               <div className="flex items-center mb-3">
@@ -284,16 +311,24 @@ export default function JobDetails() {
 
               {/* Share */}
               <div className="bg-blue-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Share this job</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Quick Actions</h3>
                 <p className="text-gray-600 text-sm mb-4">
-                  Help others discover this opportunity
+                  Manage this job opportunity
                 </p>
-                <div className="flex space-x-3">
-                  <button className="flex-1 bg-blue-600 text-white py-2 px-3 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                    Share
+                <div className="space-y-2">
+                  <button
+                    onClick={handleSave}
+                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-3 rounded-lg text-sm transition-colors"
+                  >
+                    <Bookmark className="h-4 w-4" />
+                    Save Job
                   </button>
-                  <button className="flex-1 border border-gray-300 text-gray-700 py-2 px-3 rounded-lg text-sm hover:bg-gray-50 transition-colors">
-                    Save
+                  <button
+                    onClick={handleBlock}
+                    className="w-full flex items-center justify-center gap-2 bg-red-100 hover:bg-red-200 text-red-600 py-2 px-3 rounded-lg text-sm transition-colors"
+                  >
+                    <Ban className="h-4 w-4" />
+                    Block Job
                   </button>
                 </div>
               </div>

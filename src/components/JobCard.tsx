@@ -1,9 +1,10 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Clock, DollarSign, Users, Star, Zap, Send, Bookmark } from 'lucide-react';
+import { MapPin, Clock, DollarSign, Users, Star, Zap, Send, Bookmark, Ban } from 'lucide-react';
 import { Job } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { blockJob, addSwipeAction } from '../lib/swipeStorage';
 
 interface JobCardProps {
   job: Job;
@@ -19,8 +20,21 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    // TODO: Implement save functionality
+    addSwipeAction({
+      jobId: job.id,
+      actionType: 'saved',
+      timestamp: Date.now(),
+      userId: user?.id,
+    });
     showToast(`${job.isEvent ? 'Event' : 'Job'} saved to your favorites!`, 'success');
+  };
+
+  const handleBlock = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    blockJob(job.id);
+    showToast(`${job.isEvent ? 'Event' : 'Job'} blocked. It will no longer appear.`, 'warning');
+    window.location.reload();
   };
 
   const handleQuickApply = (e: React.MouseEvent) => {
@@ -37,14 +51,22 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
         job.featured ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50' : 'border-gray-100'
       } ${!canAfford ? 'opacity-60' : ''}`}
     >
-      {/* Save Button */}
-      <button
-        onClick={handleSave}
-        className="absolute top-4 right-4 z-10 bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
-        title={`Save this ${job.isEvent ? 'event' : 'job'}`}
-      >
-        <Bookmark className="h-4 w-4" />
-      </button>
+      <div className="absolute top-4 right-4 z-10 flex gap-2">
+        <button
+          onClick={handleSave}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
+          title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+        >
+          <Bookmark className="h-4 w-4" />
+        </button>
+        <button
+          onClick={handleBlock}
+          className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+          title={`Block this ${job.isEvent ? 'event' : 'job'}`}
+        >
+          <Ban className="h-4 w-4" />
+        </button>
+      </div>
       
       <div className="flex flex-col md:flex-row md:items-center justify-between">
         <div className="flex-1">

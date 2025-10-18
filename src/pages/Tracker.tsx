@@ -1,11 +1,21 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search, X, MessageSquare } from 'lucide-react';
+import { BarChart3, MessageCircle, Zap, Target, Calendar, CheckCircle, XCircle, Clock, Search, X, MessageSquare, Bookmark, Ban, History, RotateCcw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getMessages, Message, sendMessage as sendMessageApi } from '../lib/messagesApi';
 import { updateMessage, deleteMessage } from '../lib/localMessagesApi';
 import MessageBubble from '../components/MessageBubble';
 import { createPurchase, savePurchase } from '../lib/purchaseApi';
+import { useJobs } from '../context/JobContext';
+import {
+  getSavedJobs,
+  getBlockedJobs,
+  getIgnoredJobs,
+  getAppliedJobs,
+  unblockJob,
+  clearIgnoredHistory,
+  removeSwipeAction,
+} from '../lib/swipeStorage';
 
 interface ApplicantMessageModalProps {
   application: any;
@@ -183,6 +193,8 @@ function ApplicantMessageModal({ application, onClose }: ApplicantMessageModalPr
 export default function Tracker() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const { jobs, events } = useJobs();
+  const [activeTab, setActiveTab] = useState<'applied' | 'saved' | 'history' | 'blocked'>('applied');
   const [showPointsModal, setShowPointsModal] = useState(false);
   const [showConversationModal, setShowConversationModal] = useState(false);
   const [showAddPointsModal, setShowAddPointsModal] = useState(false);
@@ -352,13 +364,90 @@ export default function Tracker() {
 
   const totalPointsUsed = applications.reduce((sum, app) => sum + app.pointsUsed, 0);
 
+  const allJobsAndEvents = [...jobs, ...events];
+  const savedJobIds = getSavedJobs();
+  const blockedJobIds = getBlockedJobs();
+  const ignoredJobIds = getIgnoredJobs();
+  const appliedJobIds = getAppliedJobs();
+
+  const savedItems = allJobsAndEvents.filter(item => savedJobIds.includes(item.id));
+  const blockedItems = allJobsAndEvents.filter(item => blockedJobIds.includes(item.id));
+  const ignoredItems = allJobsAndEvents.filter(item => ignoredJobIds.includes(item.id));
+
+  const handleUnblock = (jobId: string) => {
+    unblockJob(jobId);
+    showToast('Job unblocked successfully', 'success');
+  };
+
+  const handleClearHistory = () => {
+    clearIgnoredHistory();
+    showToast('Ignored history cleared', 'success');
+  };
+
+  const handleRestoreIgnored = (jobId: string) => {
+    removeSwipeAction(jobId, 'ignored');
+    showToast('Job restored', 'success');
+  };
+
+  const handleUnsave = (jobId: string) => {
+    removeSwipeAction(jobId, 'saved');
+    showToast('Job removed from saved', 'success');
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">Application Tracker</h1>
         <p className="text-gray-600">
-          Monitor your job applications and manage your points effectively.
+          Monitor your job applications and manage your swipe history.
         </p>
+      </div>
+
+      <div className="mb-6 flex gap-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('applied')}
+          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'applied'
+              ? 'bg-blue-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-600'
+          }`}
+        >
+          <CheckCircle className="h-5 w-5" />
+          Applied
+        </button>
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'saved'
+              ? 'bg-yellow-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-yellow-600'
+          }`}
+        >
+          <Bookmark className="h-5 w-5" />
+          Saved ({savedItems.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'history'
+              ? 'bg-gray-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-600'
+          }`}
+        >
+          <History className="h-5 w-5" />
+          History ({ignoredItems.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('blocked')}
+          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+            activeTab === 'blocked'
+              ? 'bg-red-600 text-white'
+              : 'bg-white text-gray-700 border border-gray-300 hover:border-red-600'
+          }`}
+        >
+          <Ban className="h-5 w-5" />
+          Blocked ({blockedItems.length})
+        </button>
       </div>
 
       {/* Stats and Actions */}
@@ -433,12 +522,12 @@ export default function Tracker() {
         </div>
       </div>
 
-      {/* Applications List */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900">Your Applications</h2>
-        </div>
-        <div className="divide-y divide-gray-200">
+      {activeTab === 'applied' && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Your Applications</h2>
+          </div>
+          <div className="divide-y divide-gray-200">
           {applications.map((application) => (
             <div key={application.id} className="p-6 hover:bg-gray-50 transition-colors">
               <div className="flex flex-col md:flex-row md:items-center justify-between">
@@ -531,8 +620,123 @@ export default function Tracker() {
               </div>
             </div>
           ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'saved' && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Saved Jobs</h2>
+          </div>
+          {savedItems.length === 0 ? (
+            <div className="p-12 text-center">
+              <Bookmark className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No saved jobs</h3>
+              <p className="text-gray-600">Jobs you save will appear here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {savedItems.map((job) => (
+                <div key={job.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title}</h3>
+                      <p className="text-gray-600 mb-2">{job.company}</p>
+                      <p className="text-sm text-gray-500">{job.location}</p>
+                    </div>
+                    <button
+                      onClick={() => handleUnsave(job.id)}
+                      className="bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-900">Ignored Jobs</h2>
+            {ignoredItems.length > 0 && (
+              <button
+                onClick={handleClearHistory}
+                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Clear History
+              </button>
+            )}
+          </div>
+          {ignoredItems.length === 0 ? (
+            <div className="p-12 text-center">
+              <History className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No ignored jobs</h3>
+              <p className="text-gray-600">Jobs you ignore in swipe mode will appear here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {ignoredItems.map((job) => (
+                <div key={job.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title}</h3>
+                      <p className="text-gray-600 mb-2">{job.company}</p>
+                      <p className="text-sm text-gray-500">{job.location}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRestoreIgnored(job.id)}
+                      className="bg-blue-100 hover:bg-blue-200 text-blue-600 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'blocked' && (
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+          <div className="p-6 border-b border-gray-200">
+            <h2 className="text-xl font-bold text-gray-900">Blocked Jobs</h2>
+          </div>
+          {blockedItems.length === 0 ? (
+            <div className="p-12 text-center">
+              <Ban className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No blocked jobs</h3>
+              <p className="text-gray-600">Jobs you block will never appear again unless unblocked here</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-200">
+              {blockedItems.map((job) => (
+                <div key={job.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{job.title}</h3>
+                      <p className="text-gray-600 mb-2">{job.company}</p>
+                      <p className="text-sm text-gray-500">{job.location}</p>
+                    </div>
+                    <button
+                      onClick={() => handleUnblock(job.id)}
+                      className="bg-green-100 hover:bg-green-200 text-green-600 px-4 py-2 rounded-lg transition-colors"
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Points Modal */}
       {showPointsModal && (
