@@ -8,7 +8,6 @@ import {
   Calendar,
   Users,
   Briefcase,
-  TrendingUp,
   DollarSign,
   Star,
   Ban,
@@ -18,8 +17,21 @@ import {
   XCircle,
   Clock,
   AlertCircle,
+  Heart,
+  UserPlus,
 } from 'lucide-react';
-import { getCompany, blockCompany, reportCompany, getCompanyReviews, addCompanyReview, initializeCompanyFromJobs } from '../lib/companyApi';
+import {
+  getCompany,
+  blockCompany,
+  reportCompany,
+  addCompanyReview,
+  initializeCompanyFromJobs,
+  followCompany,
+  unfollowCompany,
+  isCompanyFollowed,
+  reportSalary,
+  getCompanyFollowCount,
+} from '../lib/companyApi';
 import { useJobs } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -33,26 +45,35 @@ export default function CompanyProfile() {
   const navigate = useNavigate();
 
   const [company, setCompany] = useState<any>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
   const [reportReason, setReportReason] = useState('');
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showSalaryModal, setShowSalaryModal] = useState(false);
   const [reviewData, setReviewData] = useState({
     rating: 5,
     comment: '',
     applicantStatus: 'not_applied' as const,
     jobTitle: '',
   });
+  const [salaryData, setSalaryData] = useState({
+    jobTitle: '',
+    salaryAmount: '',
+    employmentType: 'full-time' as 'full-time' | 'part-time' | 'contract' | 'internship',
+    notes: '',
+  });
   const [activeTab, setActiveTab] = useState<'current' | 'previous'>('current');
 
   useEffect(() => {
-    if (companyName) {
+    if (companyName && user) {
       initializeCompanyFromJobs([...jobs, ...events]);
       const decodedCompanyName = decodeURIComponent(companyName);
       const companyData = getCompany(decodedCompanyName);
       setCompany(companyData);
+      setIsFollowing(isCompanyFollowed(decodedCompanyName, user.id));
     }
-  }, [companyName, jobs, events]);
+  }, [companyName, jobs, events, user]);
 
   if (!company || !companyName) {
     return (
@@ -97,6 +118,26 @@ export default function CompanyProfile() {
     setReportReason('');
   };
 
+  const handleFollowToggle = () => {
+    if (!user) {
+      showToast('Please sign in to follow companies', 'warning');
+      return;
+    }
+
+    if (isFollowing) {
+      unfollowCompany(decodedCompanyName, user.id);
+      setIsFollowing(false);
+      showToast(`Unfollowed ${decodedCompanyName}`, 'info');
+    } else {
+      followCompany(decodedCompanyName, user.id);
+      setIsFollowing(true);
+      showToast(`Now following ${decodedCompanyName}`, 'success');
+    }
+
+    const updatedCompany = getCompany(decodedCompanyName);
+    setCompany(updatedCompany);
+  };
+
   const handleSubmitReview = () => {
     if (!user) {
       showToast('Please sign in to leave a review', 'warning');
@@ -131,6 +172,49 @@ export default function CompanyProfile() {
     setCompany(updatedCompany);
   };
 
+  const handleSubmitSalary = () => {
+    if (!user) {
+      showToast('Please sign in to report salary', 'warning');
+      return;
+    }
+
+    if (!salaryData.jobTitle.trim()) {
+      showToast('Please enter a job title', 'warning');
+      return;
+    }
+
+    const salaryAmount = parseFloat(salaryData.salaryAmount);
+    if (isNaN(salaryAmount) || salaryAmount < 15000 || salaryAmount > 500000) {
+      showToast('Salary must be between $15,000 and $500,000', 'warning');
+      return;
+    }
+
+    try {
+      reportSalary({
+        userId: user.id,
+        companyName: decodedCompanyName,
+        jobTitle: salaryData.jobTitle,
+        salaryAmount,
+        employmentType: salaryData.employmentType,
+        notes: salaryData.notes || undefined,
+      });
+
+      showToast('Salary reported successfully', 'success');
+      setShowSalaryModal(false);
+      setSalaryData({
+        jobTitle: '',
+        salaryAmount: '',
+        employmentType: 'full-time',
+        notes: '',
+      });
+
+      const updatedCompany = getCompany(decodedCompanyName);
+      setCompany(updatedCompany);
+    } catch (error) {
+      showToast('Failed to report salary', 'error');
+    }
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'hired':
@@ -150,6 +234,10 @@ export default function CompanyProfile() {
     return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
+  const gradientColors = company.profileColors
+    ? `from-${company.profileColors.from} to-${company.profileColors.to}`
+    : 'from-blue-600 to-blue-700';
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <Link
@@ -161,7 +249,7 @@ export default function CompanyProfile() {
       </Link>
 
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mb-8">
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-32"></div>
+        <div className={`bg-gradient-to-r ${gradientColors} h-32`}></div>
         <div className="px-8 pb-8">
           <div className="flex flex-col md:flex-row md:items-end md:justify-between -mt-16">
             <div className="flex items-end mb-4 md:mb-0">
@@ -180,6 +268,26 @@ export default function CompanyProfile() {
               </div>
             </div>
             <div className="flex gap-3">
+              <button
+                onClick={handleFollowToggle}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-medium ${
+                  isFollowing
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'border-2 border-blue-600 text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                {isFollowing ? (
+                  <>
+                    <Heart className="h-4 w-4 fill-current" />
+                    Following
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="h-4 w-4" />
+                    Follow
+                  </>
+                )}
+              </button>
               <button
                 onClick={() => setShowReportModal(true)}
                 className="flex items-center gap-2 px-4 py-2 border-2 border-orange-600 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors font-medium"
@@ -352,6 +460,13 @@ export default function CompanyProfile() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gray-700">
+                  <Heart className="h-5 w-5 text-pink-600" />
+                  <span>Followers</span>
+                </div>
+                <span className="font-bold text-gray-900">{company.statistics.followCount || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-700">
                   <CheckCircle className="h-5 w-5 text-green-600" />
                   <span>Hired</span>
                 </div>
@@ -380,11 +495,29 @@ export default function CompanyProfile() {
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-gray-700">
+                  <Users className="h-5 w-5 text-blue-600" />
+                  <span>Total Applications</span>
+                </div>
+                <span className="font-bold text-gray-900">{company.statistics.totalApplications || 0}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-700">
                   <DollarSign className="h-5 w-5 text-green-600" />
                   <span>Avg Salary</span>
                 </div>
                 <span className="font-bold text-gray-900">
                   ${company.statistics.averageSalary.toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <DollarSign className="h-5 w-5 text-emerald-600" />
+                  <span>Avg Reported Salary</span>
+                </div>
+                <span className="font-bold text-gray-900">
+                  {company.statistics.averageReportedSalary > 0
+                    ? `$${company.statistics.averageReportedSalary.toLocaleString()}`
+                    : 'N/A'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
@@ -397,6 +530,12 @@ export default function CompanyProfile() {
                 </span>
               </div>
             </div>
+            <button
+              onClick={() => setShowSalaryModal(true)}
+              className="w-full mt-6 bg-gradient-to-r from-green-600 to-emerald-600 text-white px-4 py-3 rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all font-medium"
+            >
+              Report Salary
+            </button>
           </div>
 
           {company.addresses && company.addresses.length > 1 && (
@@ -476,7 +615,7 @@ export default function CompanyProfile() {
 
       {showReviewModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto">
             <h3 className="text-xl font-bold text-gray-900 mb-4">Write a Review</h3>
 
             <div className="mb-4">
@@ -556,6 +695,92 @@ export default function CompanyProfile() {
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 Submit Review
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSalaryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Report Salary</h3>
+            <p className="text-gray-600 text-sm mb-4">
+              Help others by sharing salary information for {company.name}
+            </p>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
+              <input
+                type="text"
+                value={salaryData.jobTitle}
+                onChange={(e) => setSalaryData({ ...salaryData, jobTitle: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Software Engineer"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Annual Salary</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                <input
+                  type="number"
+                  value={salaryData.salaryAmount}
+                  onChange={(e) => setSalaryData({ ...salaryData, salaryAmount: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg p-2 pl-7 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="75000"
+                  min="15000"
+                  max="500000"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Between $15,000 and $500,000</p>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Employment Type</label>
+              <select
+                value={salaryData.employmentType}
+                onChange={(e) => setSalaryData({ ...salaryData, employmentType: e.target.value as any })}
+                className="w-full border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="full-time">Full-time</option>
+                <option value="part-time">Part-time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+              </select>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+              <textarea
+                value={salaryData.notes}
+                onChange={(e) => setSalaryData({ ...salaryData, notes: e.target.value })}
+                className="w-full border border-gray-300 rounded-lg p-3 min-h-[80px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Additional context about benefits, location, etc."
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowSalaryModal(false);
+                  setSalaryData({
+                    jobTitle: '',
+                    salaryAmount: '',
+                    employmentType: 'full-time',
+                    notes: '',
+                  });
+                }}
+                className="flex-1 px-4 py-2 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSubmitSalary}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+              >
+                Submit Report
               </button>
             </div>
           </div>

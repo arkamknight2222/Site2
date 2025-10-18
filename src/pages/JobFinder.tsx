@@ -156,15 +156,7 @@ export default function JobFinder() {
           )}
         </>
       ) : (
-        <>
-          <FilterPanel filters={filters} setFilters={setFilters} />
-          {user && (
-            <div className="flex justify-center mb-6">
-              <PointsDisplay />
-            </div>
-          )}
-          <SwipeStack jobs={filteredJobs} onApply={handleQuickApply} />
-        </>
+        <SwipeStack jobs={filteredJobs} onApply={handleQuickApply} filters={filters} setFilters={setFilters} />
       )}
     </div>
   );

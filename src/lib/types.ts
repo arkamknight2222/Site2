@@ -148,8 +148,22 @@ export interface CompanyStatistics {
   rejected: number;
   totalJobPosts: number;
   averageSalary: number;
+  averageReportedSalary: number;
   totalReviews: number;
   averageRating: number;
+  followCount: number;
+  totalApplications: number;
+}
+
+export interface SalaryReport {
+  id: string;
+  userId: string;
+  companyName: string;
+  jobTitle: string;
+  salaryAmount: number;
+  employmentType: 'full-time' | 'part-time' | 'contract' | 'internship';
+  notes?: string;
+  reportedAt: string;
 }
 
 export interface Company {
@@ -161,6 +175,10 @@ export interface Company {
   industry?: string;
   foundedYear?: number;
   companySize?: string;
+  profileColors?: {
+    from: string;
+    to: string;
+  };
   statistics: CompanyStatistics;
   reviews: CompanyReview[];
   jobPostings: string[];

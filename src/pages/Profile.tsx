@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { User, Mail, Phone, Upload, Save, Edit, Camera, Settings, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, Upload, Save, Edit, Camera, Settings, ArrowRight, Building2, Ban, Heart, Search, SortAsc } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getBlockedCompanies, unblockCompany, getFollowedCompanies, unfollowCompany, getCompany } from '../lib/companyApi';
 
 export default function Profile() {
   const { user, updateUser } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [profilePicture, setProfilePicture] = useState<string | null>(user?.profilePicture || null);
   const [formData, setFormData] = useState({
@@ -25,8 +27,21 @@ export default function Profile() {
     experience: '',
     location: '',
   });
-  
+
   const [newSkill, setNewSkill] = useState('');
+  const [blockedCompanies, setBlockedCompanies] = useState<string[]>([]);
+  const [followedCompanies, setFollowedCompanies] = useState<Array<{ companyName: string; followedAt: string }>>([]);
+  const [blockedSearch, setBlockedSearch] = useState('');
+  const [followedSearch, setFollowedSearch] = useState('');
+  const [blockedSort, setBlockedSort] = useState<'name-asc' | 'name-desc'>('name-asc');
+  const [followedSort, setFollowedSort] = useState<'date-desc' | 'date-asc' | 'name-asc' | 'name-desc'>('date-desc');
+
+  useEffect(() => {
+    if (user) {
+      setBlockedCompanies(getBlockedCompanies());
+      setFollowedCompanies(getFollowedCompanies(user.id));
+    }
+  }, [user]);
 
   const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,6 +125,36 @@ export default function Profile() {
       skills: formData.skills.filter(s => s !== skill)
     });
   };
+
+  const handleUnblock = (companyName: string) => {
+    unblockCompany(companyName);
+    setBlockedCompanies(getBlockedCompanies());
+    showToast(`${companyName} has been unblocked`, 'success');
+  };
+
+  const handleUnfollow = (companyName: string) => {
+    if (user) {
+      unfollowCompany(companyName, user.id);
+      setFollowedCompanies(getFollowedCompanies(user.id));
+      showToast(`Unfollowed ${companyName}`, 'info');
+    }
+  };
+
+  const filteredBlockedCompanies = blockedCompanies
+    .filter(name => name.toLowerCase().includes(blockedSearch.toLowerCase()))
+    .sort((a, b) => {
+      if (blockedSort === 'name-asc') return a.localeCompare(b);
+      return b.localeCompare(a);
+    });
+
+  const filteredFollowedCompanies = followedCompanies
+    .filter(item => item.companyName.toLowerCase().includes(followedSearch.toLowerCase()))
+    .sort((a, b) => {
+      if (followedSort === 'date-desc') return new Date(b.followedAt).getTime() - new Date(a.followedAt).getTime();
+      if (followedSort === 'date-asc') return new Date(a.followedAt).getTime() - new Date(b.followedAt).getTime();
+      if (followedSort === 'name-asc') return a.companyName.localeCompare(b.companyName);
+      return b.companyName.localeCompare(a.companyName);
+    });
 
 
   return (
@@ -470,6 +515,184 @@ export default function Profile() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="mt-8 bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <Ban className="h-6 w-6 text-red-600 mr-3" />
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Blocked Companies</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {blockedCompanies.length} {blockedCompanies.length === 1 ? 'company' : 'companies'} blocked
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search companies..."
+                value={blockedSearch}
+                onChange={(e) => setBlockedSearch(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            <select
+              value={blockedSort}
+              onChange={(e) => setBlockedSort(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+            </select>
+          </div>
+        </div>
+
+        {filteredBlockedCompanies.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredBlockedCompanies.map((companyName) => {
+              const company = getCompany(companyName);
+              return (
+                <div key={companyName} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start flex-1">
+                      {company?.logo ? (
+                        <img src={company.logo} alt={companyName} className="h-12 w-12 object-contain rounded-lg mr-3" />
+                      ) : (
+                        <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
+                          <Building2 className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">{companyName}</h3>
+                        <p className="text-sm text-gray-600 mt-1">Blocked company</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => navigate(`/company/${encodeURIComponent(companyName)}`)}
+                      className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => handleUnblock(companyName)}
+                      className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                      Unblock
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Ban className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {blockedSearch ? 'No companies found' : 'No blocked companies'}
+            </h3>
+            <p className="text-gray-600">
+              {blockedSearch
+                ? 'Try adjusting your search'
+                : 'Companies you block will appear here'}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 bg-white rounded-2xl shadow-xl border border-gray-100 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center">
+            <Heart className="h-6 w-6 text-pink-600 mr-3" />
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Followed Companies</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {followedCompanies.length} {followedCompanies.length === 1 ? 'company' : 'companies'} followed
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search companies..."
+                value={followedSearch}
+                onChange={(e) => setFollowedSearch(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              />
+            </div>
+            <select
+              value={followedSort}
+              onChange={(e) => setFollowedSort(e.target.value as any)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="date-desc">Recently Followed</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="name-asc">Name A-Z</option>
+              <option value="name-desc">Name Z-A</option>
+            </select>
+          </div>
+        </div>
+
+        {filteredFollowedCompanies.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredFollowedCompanies.map((item) => {
+              const company = getCompany(item.companyName);
+              return (
+                <div key={item.companyName} className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start flex-1">
+                      {company?.logo ? (
+                        <img src={company.logo} alt={item.companyName} className="h-12 w-12 object-contain rounded-lg mr-3" />
+                      ) : (
+                        <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center mr-3">
+                          <Building2 className="h-6 w-6 text-gray-400" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">{item.companyName}</h3>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Followed {new Date(item.followedAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => navigate(`/company/${encodeURIComponent(item.companyName)}`)}
+                      className="flex-1 px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    >
+                      View Profile
+                    </button>
+                    <button
+                      onClick={() => handleUnfollow(item.companyName)}
+                      className="flex-1 px-3 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm font-medium"
+                    >
+                      Unfollow
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <Heart className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {followedSearch ? 'No companies found' : 'No followed companies'}
+            </h3>
+            <p className="text-gray-600">
+              {followedSearch
+                ? 'Try adjusting your search'
+                : 'Companies you follow will appear here'}
+            </p>
+          </div>
+        )}
       </div>
 
     </div>

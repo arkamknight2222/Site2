@@ -15,6 +15,8 @@ import { addPointsHistoryEntry } from '../lib/pointsHistoryApi';
 interface SwipeStackProps {
   jobs: Job[];
   onApply?: (jobId: string) => void;
+  filters?: any;
+  setFilters?: any;
 }
 
 interface PendingAction {
@@ -23,7 +25,7 @@ interface PendingAction {
   timestamp: number;
 }
 
-export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
+export default function SwipeStack({ jobs, onApply, filters, setFilters }: SwipeStackProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [animatingOut, setAnimatingOut] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -227,51 +229,64 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
   }, []);
 
   return (
-    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 to-purple-50 flex flex-col p-4' : ''}`}>
-      <div className="mb-6 text-center">
-        <div className="flex justify-between items-center mb-4">
-          <p className="text-lg font-semibold text-gray-700">
-            {remainingCount} {remainingCount === 1 ? 'job' : 'jobs'} remaining
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleFullscreen}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            </button>
-            <button
-              onClick={handleClearHistory}
-              className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear History
-            </button>
+    <div className={`relative ${isFullscreen ? 'fixed inset-0 z-50 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center' : ''}`}>
+      {!isFullscreen && (
+        <div className="mb-6 text-center">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-lg font-semibold text-gray-700">
+              {remainingCount} {remainingCount === 1 ? 'job' : 'jobs'} remaining
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+                title="Enter Fullscreen"
+              >
+                <Maximize className="h-4 w-4" />
+                Fullscreen
+              </button>
+              <button
+                onClick={handleClearHistory}
+                className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+              >
+                <Trash2 className="h-4 w-4" />
+                Clear History
+              </button>
+            </div>
+          </div>
+          <div className="mt-2 flex justify-center gap-6 text-sm text-gray-600">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+              <span>Swipe Left: Ignore</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+              <span>Swipe Up: Save</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+              <span>Swipe Right: Apply</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
+              <span>Swipe Down: Block</span>
+            </div>
           </div>
         </div>
-        <div className="mt-2 flex justify-center gap-6 text-sm text-gray-600">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <span>Swipe Left: Ignore</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-            <span>Swipe Up: Save</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>Swipe Right: Apply</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-            <span>Swipe Down: Block</span>
-          </div>
-        </div>
-      </div>
+      )}
 
-      <div className={`relative ${isFullscreen ? 'flex-1 max-w-full' : 'h-[600px] max-w-2xl'} mx-auto`}>
+      {isFullscreen && (
+        <button
+          onClick={toggleFullscreen}
+          className="absolute top-4 right-4 z-50 flex items-center gap-2 bg-black/70 hover:bg-black/90 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+          title="Exit Fullscreen"
+        >
+          <Minimize className="h-4 w-4" />
+          Exit
+        </button>
+      )}
+
+      <div className={`relative ${isFullscreen ? 'w-full h-full max-w-2xl' : 'h-[600px] max-w-2xl'} mx-auto flex items-center justify-center`}>
         {filteredJobs.slice(currentIndex, currentIndex + 3).map((job, index) => {
           const scale = 1 - index * 0.05;
           const translateY = index * 10;

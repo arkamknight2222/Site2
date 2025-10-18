@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building, Plus, Trash2, Settings as SettingsIcon, CreditCard, Receipt, ArrowRight } from 'lucide-react';
+import { Building, Plus, Trash2, Settings as SettingsIcon, CreditCard, Receipt, ArrowRight, Edit, Palette, Upload, HelpCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { getCompany, createOrUpdateCompany } from '../lib/companyApi';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function Settings() {
@@ -12,6 +13,14 @@ export default function Settings() {
     isOpen: false,
     companyId: null,
     companyName: ''
+  });
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingCompany, setEditingCompany] = useState<string | null>(null);
+  const [editData, setEditData] = useState({
+    biography: '',
+    logo: '',
+    colorFrom: 'blue-600',
+    colorTo: 'blue-700',
   });
 
   const [verifiedCompanies, setVerifiedCompanies] = useState([
@@ -54,6 +63,73 @@ export default function Settings() {
     setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' });
   };
 
+  const openEditModal = (companyName: string) => {
+    const company = getCompany(companyName);
+    if (company) {
+      setEditingCompany(companyName);
+      setEditData({
+        biography: company.biography || '',
+        logo: company.logo || '',
+        colorFrom: company.profileColors?.from || 'blue-600',
+        colorTo: company.profileColors?.to || 'blue-700',
+      });
+      setShowEditModal(true);
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file', 'error');
+        return;
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image must be smaller than 5MB', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setEditData({ ...editData, logo: result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSaveProfile = () => {
+    if (!editingCompany) return;
+
+    const company = getCompany(editingCompany);
+    if (company) {
+      createOrUpdateCompany(editingCompany, {
+        ...company,
+        biography: editData.biography,
+        logo: editData.logo,
+        profileColors: {
+          from: editData.colorFrom,
+          to: editData.colorTo,
+        },
+      });
+
+      showToast('Company profile updated successfully!', 'success');
+      setShowEditModal(false);
+      setEditingCompany(null);
+    }
+  };
+
+  const colorOptions = [
+    { name: 'Blue', from: 'blue-600', to: 'blue-700' },
+    { name: 'Green', from: 'green-600', to: 'emerald-700' },
+    { name: 'Red', from: 'red-600', to: 'rose-700' },
+    { name: 'Orange', from: 'orange-600', to: 'amber-700' },
+    { name: 'Teal', from: 'teal-600', to: 'cyan-700' },
+    { name: 'Pink', from: 'pink-600', to: 'fuchsia-700' },
+    { name: 'Gray', from: 'gray-600', to: 'slate-700' },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="mb-8">
@@ -68,6 +144,25 @@ export default function Settings() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl shadow-lg border border-blue-200 p-6">
+            <div className="flex items-start">
+              <HelpCircle className="h-6 w-6 text-blue-600 mr-3 mt-1 flex-shrink-0" />
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">Need Help?</h2>
+                <p className="text-gray-700 mb-4">
+                  Contact our support team for assistance with verification, account settings, or any other questions.
+                </p>
+                <Link
+                  to="/support"
+                  className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                >
+                  Contact Support
+                  <ArrowRight className="h-4 w-4 ml-2" />
+                </Link>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6">
               <h2 className="text-2xl font-bold text-white">Job Poster Verification</h2>
@@ -98,12 +193,22 @@ export default function Settings() {
                         </div>
                         <p className="text-sm text-gray-600">{company.address}</p>
                       </div>
-                      <button
-                        onClick={() => removeCompany(company.id)}
-                        className="text-red-500 hover:text-red-700 p-1 transition-colors"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex gap-2 ml-4">
+                        <button
+                          onClick={() => openEditModal(company.name)}
+                          className="text-blue-600 hover:text-blue-700 p-1 transition-colors"
+                          title="Edit Profile"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => removeCompany(company.id)}
+                          className="text-red-500 hover:text-red-700 p-1 transition-colors"
+                          title="Delete Company"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
 
@@ -199,7 +304,7 @@ export default function Settings() {
 
         <div className="space-y-6">
           <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl shadow-lg p-6 text-white">
-            <h3 className="text-lg font-bold mb-2">Quick Links</h3>
+            <h3 className="text-lg font-bold mb-2">Quick Access</h3>
             <div className="space-y-3 mt-4">
               <Link
                 to="/profile"
@@ -224,19 +329,6 @@ export default function Settings() {
               </Link>
             </div>
           </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">Need Help?</h3>
-            <p className="text-sm text-blue-700 mb-4">
-              Contact our support team for assistance with verification or account settings.
-            </p>
-            <Link
-              to="/support"
-              className="inline-block bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-            >
-              Contact Support
-            </Link>
-          </div>
         </div>
       </div>
 
@@ -250,6 +342,91 @@ export default function Settings() {
         onCancel={() => setDeleteCompanyModal({ isOpen: false, companyId: null, companyName: '' })}
         variant="warning"
       />
+
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-gray-900 mb-6">Edit Company Profile</h3>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Company Logo
+                </label>
+                <div className="flex items-center gap-4">
+                  {editData.logo && (
+                    <img src={editData.logo} alt="Logo preview" className="h-20 w-20 object-contain rounded-lg border border-gray-200" />
+                  )}
+                  <label className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors cursor-pointer">
+                    <Upload className="h-4 w-4" />
+                    Upload Logo
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleLogoUpload}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">JPG, PNG, or SVG. Max 5MB.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  About / Biography
+                </label>
+                <textarea
+                  value={editData.biography}
+                  onChange={(e) => setEditData({ ...editData, biography: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg p-3 min-h-[120px] focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Tell us about your company..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  <Palette className="inline h-4 w-4 mr-1" />
+                  Profile Header Colors
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color.name}
+                      onClick={() => setEditData({ ...editData, colorFrom: color.from, colorTo: color.to })}
+                      className={`p-3 rounded-lg border-2 transition-all ${
+                        editData.colorFrom === color.from
+                          ? 'border-blue-600 ring-2 ring-blue-200'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className={`h-8 rounded bg-gradient-to-r from-${color.from} to-${color.to} mb-2`}></div>
+                      <p className="text-xs font-medium text-gray-700 text-center">{color.name}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingCompany(null);
+                }}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                className="flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
