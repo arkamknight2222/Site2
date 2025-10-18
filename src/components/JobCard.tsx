@@ -51,25 +51,9 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
         job.featured ? 'border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50' : 'border-gray-100'
       } ${!canAfford ? 'opacity-60' : ''}`}
     >
-      <div className="absolute top-4 right-4 z-10 flex gap-2">
-        <button
-          onClick={handleSave}
-          className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
-          title={`Save this ${job.isEvent ? 'event' : 'job'}`}
-        >
-          <Bookmark className="h-4 w-4" />
-        </button>
-        <button
-          onClick={handleBlock}
-          className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
-          title={`Block this ${job.isEvent ? 'event' : 'job'}`}
-        >
-          <Ban className="h-4 w-4" />
-        </button>
-      </div>
       
       <div className="flex flex-col md:flex-row md:items-center justify-between">
-        <div className="flex-1">
+        <div className="flex-1 pr-20">
           <div className="flex items-center mb-2">
             <h3 className="text-xl font-bold text-gray-900 mr-2">{job.title}</h3>
             {job.featured && (
@@ -107,17 +91,33 @@ export default function JobCard({ job, showPoints = true, onQuickApply }: JobCar
           </div>
           <p className="text-gray-600 line-clamp-2">{job.description}</p>
         </div>
-        <div className="mt-4 md:mt-0 md:ml-6 flex flex-col items-end">
+        <div className="mt-4 md:mt-0 md:ml-6 flex flex-col items-end min-w-[180px]">
           {showPoints && (
-            <div className="mb-3 text-center">
-              <div className="text-sm text-gray-500 text-center">Points Boost Minimum Spend Requirement</div>
+            <div className="mb-3 text-center w-full">
+              <div className="text-sm text-gray-500 text-center">Minimum Boost Point Spend</div>
               <div className={`text-lg font-bold flex items-center justify-center ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
                 <Zap className="h-4 w-4 mr-1" />
                 {job.minimumPoints}
               </div>
             </div>
           )}
-          <div className={`${job.isEvent && job.requiresApplication && onQuickApply ? 'flex flex-col gap-2' : 'flex gap-2'}`}>
+          <div className="absolute top-4 right-4 z-10 flex gap-2">
+            <button
+              onClick={handleSave}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-600 p-2 rounded-lg transition-colors"
+              title={`Save this ${job.isEvent ? 'event' : 'job'}`}
+            >
+              <Bookmark className="h-4 w-4" />
+            </button>
+            <button
+              onClick={handleBlock}
+              className="bg-red-100 hover:bg-red-200 text-red-600 p-2 rounded-lg transition-colors"
+              title={`Block this ${job.isEvent ? 'event' : 'job'}`}
+            >
+              <Ban className="h-4 w-4" />
+            </button>
+          </div>
+          <div className={`${job.isEvent && job.requiresApplication && onQuickApply ? 'flex flex-col gap-2 w-full' : 'flex gap-2'}`}>
             {job.isEvent && job.requiresApplication && onQuickApply && (
               <button
                 onClick={handleQuickApply}

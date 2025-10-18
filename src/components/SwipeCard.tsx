@@ -150,7 +150,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
         </div>
       )}
 
-      <div className="p-6 h-full overflow-y-auto">
+      <div className="p-6 h-full overflow-y-auto pb-28">
         {job.featured && (
           <div className="mb-4 flex items-center justify-center">
             <span className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-semibold flex items-center">
@@ -220,7 +220,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
         {job.minimumPoints > 0 && (
           <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4">
             <div className="flex items-center justify-between">
-              <span className="text-gray-700 font-medium">Points Requirement</span>
+              <span className="text-gray-700 font-medium">Minimum Boost Point Spend</span>
               <div className={`flex items-center text-lg font-bold ${canAfford ? 'text-green-600' : 'text-red-600'}`}>
                 <Zap className="h-5 w-5 mr-1" />
                 {job.minimumPoints}
@@ -231,7 +231,7 @@ export default function SwipeCard({ job, onSwipe, style = {}, isTop = false }: S
 
         <Link
           to={job.isEvent ? `/event/${job.id}` : `/job/${job.id}`}
-          className="block w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-center hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center"
+          className="block w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 rounded-lg font-semibold text-center hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center mb-4"
           onClick={(e) => e.stopPropagation()}
         >
           <ExternalLink className="h-5 w-5 mr-2" />

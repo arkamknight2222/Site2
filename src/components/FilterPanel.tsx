@@ -1,5 +1,5 @@
-import React from 'react';
-import { Search, MapPin, Filter, X, Navigation } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Search, MapPin, Filter, X, Navigation, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface FilterPanelProps {
   filters: any;
@@ -9,6 +9,12 @@ interface FilterPanelProps {
 }
 
 export default function FilterPanel({ filters, setFilters, isEvent = false, onClear }: FilterPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Always start collapsed on component mount
+  useEffect(() => {
+    setIsExpanded(false);
+  }, []);
   const handleClearFilters = () => {
     const clearedFilters = {
       search: '',
@@ -31,11 +37,27 @@ export default function FilterPanel({ filters, setFilters, isEvent = false, onCl
     <>
       <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
+        <div className="flex items-center gap-3">
           <Filter className="h-5 w-5 text-gray-600 mr-2" />
           <h2 className="text-lg font-semibold text-gray-900">
             Filter {isEvent ? 'Events' : 'Jobs'}
           </h2>
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 transition-colors font-medium"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Collapse
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                Expand
+              </>
+            )}
+          </button>
         </div>
         {hasActiveFilters && (
           <button
@@ -48,6 +70,8 @@ export default function FilterPanel({ filters, setFilters, isEvent = false, onCl
         )}
       </div>
 
+      {isExpanded && (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -149,6 +173,8 @@ export default function FilterPanel({ filters, setFilters, isEvent = false, onCl
             />
           )}
         </div>
+      </>
+      )}
       </div>
     </>
   );

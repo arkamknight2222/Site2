@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RotateCcw } from 'lucide-react';
+import { RotateCcw, Trash2 } from 'lucide-react';
 import SwipeCard from './SwipeCard';
 import { Job } from '../context/JobContext';
 import { useAuth } from '../context/AuthContext';
@@ -180,12 +180,30 @@ export default function SwipeStack({ jobs, onApply }: SwipeStackProps) {
     );
   }
 
+  const handleClearHistory = () => {
+    if (window.confirm('Are you sure you want to clear your ignored job history? This action cannot be undone.')) {
+      const { clearIgnoredHistory } = require('../lib/swipeStorage');
+      clearIgnoredHistory();
+      showToast('Ignored history cleared successfully', 'success');
+      window.location.reload();
+    }
+  };
+
   return (
     <div className="relative">
       <div className="mb-6 text-center">
-        <p className="text-lg font-semibold text-gray-700">
-          {remainingCount} {remainingCount === 1 ? 'job' : 'jobs'} remaining
-        </p>
+        <div className="flex justify-between items-center mb-4">
+          <p className="text-lg font-semibold text-gray-700">
+            {remainingCount} {remainingCount === 1 ? 'job' : 'jobs'} remaining
+          </p>
+          <button
+            onClick={handleClearHistory}
+            className="flex items-center gap-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors font-medium"
+          >
+            <Trash2 className="h-4 w-4" />
+            Clear History
+          </button>
+        </div>
         <div className="mt-2 flex justify-center gap-6 text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 bg-red-500 rounded-full"></div>

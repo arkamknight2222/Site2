@@ -403,52 +403,6 @@ export default function Tracker() {
         </p>
       </div>
 
-      <div className="mb-6 flex gap-2 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('applied')}
-          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-            activeTab === 'applied'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-600'
-          }`}
-        >
-          <CheckCircle className="h-5 w-5" />
-          Applied
-        </button>
-        <button
-          onClick={() => setActiveTab('saved')}
-          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-            activeTab === 'saved'
-              ? 'bg-yellow-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:border-yellow-600'
-          }`}
-        >
-          <Bookmark className="h-5 w-5" />
-          Saved ({savedItems.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('history')}
-          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-            activeTab === 'history'
-              ? 'bg-gray-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-600'
-          }`}
-        >
-          <History className="h-5 w-5" />
-          History ({ignoredItems.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('blocked')}
-          className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
-            activeTab === 'blocked'
-              ? 'bg-red-600 text-white'
-              : 'bg-white text-gray-700 border border-gray-300 hover:border-red-600'
-          }`}
-        >
-          <Ban className="h-5 w-5" />
-          Blocked ({blockedItems.length})
-        </button>
-      </div>
 
       {/* Stats and Actions */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -506,7 +460,7 @@ export default function Tracker() {
         <div className="flex flex-col sm:flex-row gap-4">
           <button
             onClick={() => setShowPointsModal(true)}
-            className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 transition-all flex items-center justify-center"
+            className="bg-gradient-to-r from-green-600 to-blue-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 transition-all flex items-center justify-center"
           >
             <Zap className="h-5 w-5 mr-2" />
             Buy Points
@@ -519,6 +473,56 @@ export default function Tracker() {
               className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
+        </div>
+      </div>
+
+      {/* Tabs centered */}
+      <div className="mb-6 flex justify-center">
+        <div className="flex gap-2 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab('applied')}
+            className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+              activeTab === 'applied'
+                ? 'bg-blue-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-blue-600'
+            }`}
+          >
+            <CheckCircle className="h-5 w-5" />
+            Applied
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+              activeTab === 'saved'
+                ? 'bg-yellow-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-yellow-600'
+            }`}
+          >
+            <Bookmark className="h-5 w-5" />
+            Saved ({savedItems.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+              activeTab === 'history'
+                ? 'bg-gray-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-600'
+            }`}
+          >
+            <History className="h-5 w-5" />
+            History ({ignoredItems.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('blocked')}
+            className={`px-6 py-3 rounded-lg font-semibold whitespace-nowrap transition-all flex items-center gap-2 ${
+              activeTab === 'blocked'
+                ? 'bg-red-600 text-white'
+                : 'bg-white text-gray-700 border border-gray-300 hover:border-red-600'
+            }`}
+          >
+            <Ban className="h-5 w-5" />
+            Blocked ({blockedItems.length})
+          </button>
         </div>
       </div>
 
