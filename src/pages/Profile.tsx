@@ -422,8 +422,33 @@ export default function Profile() {
                 </div>
             </div>
 
-            {/* Resume, Account Settings, and Status Information Grid */}
+            {/* Status Information, Resume, and Account Settings Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Status Information */}
+              <div className="bg-gray-50 rounded-lg p-6 flex flex-col">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
+                  <div className="space-y-4 text-sm flex-1 flex flex-col justify-center">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Veteran Status:</span>
+                      <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isVeteran ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Citizenship:</span>
+                      <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isCitizen ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Background Check:</span>
+                      <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
+                        {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
+                      </span>
+                    </div>
+                  </div>
+              </div>
+
               {/* Resume */}
               <div className="bg-gray-50 rounded-lg p-6 flex flex-col">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Resume</h3>
@@ -461,31 +486,6 @@ export default function Profile() {
                         Go to Settings
                         <ArrowRight className="h-4 w-4 ml-2" />
                       </Link>
-                    </div>
-                  </div>
-              </div>
-
-              {/* Status Information */}
-              <div className="bg-gray-50 rounded-lg p-6 flex flex-col">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
-                  <div className="space-y-4 text-sm flex-1 flex flex-col justify-center">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Veteran Status:</span>
-                      <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
-                        {formData.isVeteran ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Citizenship:</span>
-                      <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
-                        {formData.isCitizen ? 'Yes' : 'No'}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-600">Background Check:</span>
-                      <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
-                        {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
-                      </span>
                     </div>
                   </div>
               </div>
