@@ -220,10 +220,8 @@ export default function Profile() {
 
         {/* Content */}
         <div className="p-8">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Main Info */}
-            <div className="lg:col-span-2 space-y-8">
-              {/* Personal Information */}
+          <div className="space-y-8">
+            {/* Personal Information */}
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Personal Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -361,8 +359,8 @@ export default function Profile() {
                 </div>
               </div>
 
-              {/* Bio */}
-              <div>
+            {/* Bio */}
+            <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Professional Bio</h2>
                 {isEditing ? (
                   <textarea
@@ -377,10 +375,10 @@ export default function Profile() {
                     {formData.bio || 'No bio provided. Add a bio to help employers learn more about you.'}
                   </div>
                 )}
-              </div>
+            </div>
 
-              {/* Skills */}
-              <div>
+            {/* Skills */}
+            <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-4">Skills</h2>
                 {isEditing && (
                   <div className="flex gap-2 mb-4">
@@ -422,39 +420,14 @@ export default function Profile() {
                     <p className="text-gray-500 italic">No skills added yet.</p>
                   )}
                 </div>
-              </div>
+            </div>
 
-              {/* Status Information */}
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Veteran Status:</span>
-                    <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
-                      {formData.isVeteran ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Citizenship:</span>
-                    <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
-                      {formData.isCitizen ? 'Yes' : 'No'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Background Check:</span>
-                    <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
-                      {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Resume and Settings Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Resume */}
-                <div className="bg-gray-50 rounded-lg p-6">
+            {/* Resume, Account Settings, and Status Information Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Resume */}
+              <div className="bg-gray-50 rounded-lg p-6 flex flex-col">
                   <h3 className="text-lg font-semibold text-gray-900 mb-4">Resume</h3>
-                  <div className="text-center">
+                  <div className="text-center flex-1 flex flex-col justify-center">
                     <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
                     <p className="text-sm text-gray-600 mb-4">
                       {(() => {
@@ -470,13 +443,13 @@ export default function Profile() {
                       See Details
                     </Link>
                   </div>
-                </div>
+              </div>
 
-                {/* Account Settings */}
-                <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200">
-                  <div className="flex items-start">
-                    <Settings className="h-6 w-6 text-blue-600 mr-3 mt-1" />
-                    <div>
+              {/* Account Settings */}
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-6 border border-blue-200 flex flex-col">
+                  <div className="flex items-start flex-1">
+                    <Settings className="h-6 w-6 text-blue-600 mr-3 mt-1 flex-shrink-0" />
+                    <div className="flex-1">
                       <h3 className="text-lg font-bold text-gray-900 mb-2">Account Settings</h3>
                       <p className="text-sm text-gray-700 mb-4">
                         Manage your job poster verification, purchase settings, and view your transaction history.
@@ -490,25 +463,46 @@ export default function Profile() {
                       </Link>
                     </div>
                   </div>
-                </div>
+              </div>
+
+              {/* Status Information */}
+              <div className="bg-gray-50 rounded-lg p-6 flex flex-col">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Status Information</h3>
+                  <div className="space-y-4 text-sm flex-1 flex flex-col justify-center">
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Veteran Status:</span>
+                      <span className={`font-medium ${formData.isVeteran ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isVeteran ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Citizenship:</span>
+                      <span className={`font-medium ${formData.isCitizen ? 'text-green-600' : 'text-gray-900'}`}>
+                        {formData.isCitizen ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Background Check:</span>
+                      <span className={`font-medium ${formData.hasCriminalRecord ? 'text-orange-600' : 'text-green-600'}`}>
+                        {formData.hasCriminalRecord ? 'Has Record' : 'Clean'}
+                      </span>
+                    </div>
+                  </div>
               </div>
             </div>
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Actions */}
-              {isEditing && (
-                <div className="bg-blue-50 rounded-lg p-6">
-                  <button
-                    onClick={handleSave}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all flex items-center justify-center"
-                  >
-                    <Save className="h-5 w-5 mr-2" />
-                    Save Changes
-                  </button>
-                </div>
-              )}
-            </div>
+            {/* Save Button */}
+            {isEditing && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSave}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all flex items-center"
+                >
+                  <Save className="h-5 w-5 mr-2" />
+                  Save Changes
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
