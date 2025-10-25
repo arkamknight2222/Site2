@@ -10,7 +10,7 @@ interface ExtendedApplicant {
   experience: string | null;
   degree: string | null;
   applicationStatus: ApplicationStatus;
-  applicantType: 'random' | 'points';
+  applicantType: 'random' | 'points';``
   pointsUsed: number;
   appliedDate: string;
 }
